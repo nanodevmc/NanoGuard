@@ -338,7 +338,7 @@ jobs:
           fi
 
   publish-release:
-    name: Publish Official GitHub Release (v1.0.1)
+    name: Publish Official GitHub Release (v0.1.1)
     needs: [build-cpp-engine, build-rust-fastscan, test-protected-plugin-server, build-and-verify-macos, build-gui-windows, build-gui-linux]
     runs-on: ubuntu-latest
     steps:
@@ -375,13 +375,13 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.1
-          name: "NanoGuard v1.0.1 - Native Bytecode Armor & Backdoor Hunter"
+          tag_name: v0.1.1
+          name: "NanoGuard v0.1.1 - Native Bytecode Armor & Backdoor Hunter"
           draft: false
           prerelease: false
           files: release-ready/*
           body: |
-            # ɴᴀɴᴏɢᴜᴀʀᴅ v1.0.1
+            # ɴᴀɴᴏɢᴜᴀʀᴅ v0.1.1
             ### Native Bytecode Armor & Backdoor Hunter
 
             Официальный релиз **NanoGuard** — брата-близнеца [NanoDecompiler](https://github.com/NanoDev1488/NanoDecompiler).
@@ -416,9 +416,9 @@ jobs:
             ---
 
             ### 📦 Загрузка релизов:
-            - **Windows GUI (Portable EXE)**: `NanoGuard-1.0.1-Windows-Portable.exe`
-            - **Linux GUI (AppImage)**: `NanoGuard-1.0.1-Linux.AppImage`
-            - **macOS GUI (DMG / ZIP)**: `NanoGuard-1.0.1-macOS.dmg`, `NanoGuard-1.0.1-macOS.zip`
+            - **Windows GUI (Portable EXE)**: `NanoGuard-0.1.1-Windows-Portable.exe`
+            - **Linux GUI (AppImage)**: `NanoGuard-0.1.1-Linux.AppImage`
+            - **macOS GUI (DMG / ZIP)**: `NanoGuard-0.1.1-macOS.dmg`, `NanoGuard-0.1.1-macOS.zip`
             - **Нативные CLI утилиты (C++17 & Rust FastScan)**:
               - Windows: `nanoguard-cli-windows-x64.exe`, `nanoguard-fastscan-windows-x64.exe`
               - Linux: `nanoguard-cli-linux-x64`, `nanoguard-fastscan-linux-x64`

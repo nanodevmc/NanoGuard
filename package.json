@@ -1,6 +1,6 @@
 {
   "name": "nanoguard",
-  "version": "1.0.1",
+  "version": "0.1.1",
   "description": "Native Bytecode Armor & Backdoor Hunter for Minecraft & Java Plugins",
   "main": "dist/electron/main.js",
   "scripts": {

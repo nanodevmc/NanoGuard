@@ -1,4 +1,4 @@
-# ɴᴀɴᴏɢᴜᴀʀᴅ (NanoGuard) v1.0.1
+# ɴᴀɴᴏɢᴜᴀʀᴅ (NanoGuard) v0.1.1
 ### Native Bytecode Armor & Backdoor Hunter
 
 > **Брат-близнец [NanoDecompiler](https://github.com/NanoDev1488/NanoDecompiler)**: нативный движок на C++17 и Rust для тотального аудита чужих Minecraft-плагинов и непробиваемой защиты собственных.
