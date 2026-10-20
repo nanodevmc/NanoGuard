@@ -58,9 +58,9 @@ export const AuditView: React.FC<AuditViewProps> = ({
   });
 
   const getDangerLevel = (score: number) => {
-    if (score >= 60) return { label: 'КРИТИЧНО', color: '#ff1744', bg: 'rgba(255,23,68,0.15)' };
-    if (score >= 30) return { label: 'ПОДОЗРИТЕЛЬНО', color: '#ffab00', bg: 'rgba(255,171,0,0.15)' };
-    return { label: 'ЧИСТ', color: '#00e676', bg: 'rgba(0,230,118,0.15)' };
+    if (score >= 60) return { label: 'КРИТИЧНО', color: '#ff6f61', bg: 'rgba(255,111,97,0.15)' };
+    if (score >= 30) return { label: 'ПОДОЗРИТЕЛЬНО', color: '#ffb224', bg: 'rgba(255,178,36,0.15)' };
+    return { label: 'ЧИСТ', color: '#9bf246', bg: 'rgba(155,242,70,0.15)' };
   };
 
   return (
@@ -70,56 +70,55 @@ export const AuditView: React.FC<AuditViewProps> = ({
         id="audit-drop-zone"
         onClick={onSelectFile}
         style={{
-          border: '2px dashed #1a3644',
+          border: '1px dashed #1f2721',
           borderRadius: '8px',
-          padding: '20px',
+          padding: '22px',
           textAlign: 'center',
-          backgroundColor: '#0d1c24',
+          backgroundColor: '#0c100d',
           cursor: 'pointer',
           transition: 'all 0.2s ease',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           gap: '8px',
-          boxShadow: 'inset 0 0 20px rgba(0, 229, 255, 0.03)',
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.borderColor = '#00e5ff';
-          e.currentTarget.style.backgroundColor = '#102530';
+          e.currentTarget.style.borderColor = '#9bf246';
+          e.currentTarget.style.backgroundColor = '#131814';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.borderColor = '#1a3644';
-          e.currentTarget.style.backgroundColor = '#0d1c24';
+          e.currentTarget.style.borderColor = '#1f2721';
+          e.currentTarget.style.backgroundColor = '#0c100d';
         }}
       >
-        <div style={{ fontSize: '30px', filter: 'drop-shadow(0 0 8px #00e5ff)' }}>🛡️</div>
-        <div className="small-caps" style={{ fontSize: '15px', fontWeight: 800, color: '#00e5ff' }}>
-          {selectedJar ? selectedJar.split(/[/\\]/).pop() : 'ᴘᴇʀᴇᴛᴀꜱʜɪᴛᴇ .ᴊᴀʀ ꜱʏᴜᴅᴀ'}
+        <div style={{ fontSize: '28px', color: '#9bf246' }}>🛡️</div>
+        <div style={{ fontSize: '14px', fontWeight: 700, color: '#eaf0ea', fontFamily: 'JetBrains Mono, monospace' }}>
+          {selectedJar ? selectedJar.split(/[/\\]/).pop() : 'DROP JAR TO AUDIT AND DETECT BACKDOORS'}
         </div>
-        <div style={{ fontSize: '11px', color: '#88a0b0', maxWidth: '600px' }}>
+        <div style={{ fontSize: '11px', color: '#9aa69e', maxWidth: '600px', fontFamily: 'JetBrains Mono, monospace' }}>
           {selectedJar ? (
-            <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#80cbc4' }}>{selectedJar}</span>
+            <span style={{ color: '#9bf246' }}>{selectedJar}</span>
           ) : (
-            'Нажмите или перетащите Java плагин для глубокого реверса, поиска бэкдоров и скрытых прав'
+            'Статический анализ байткода, поиск скрытых ForceOP, сокетов, вебхуков Discord и загрузчиков'
           )}
         </div>
 
         {/* Action button bar */}
         <div
           onClick={(e) => e.stopPropagation()}
-          style={{ display: 'flex', gap: '10px', marginTop: '6px' }}
+          style={{ display: 'flex', gap: '8px', marginTop: '6px' }}
         >
           <button
             id="btn-select-jar"
             onClick={onSelectFile}
             style={{
               padding: '6px 14px',
-              backgroundColor: '#142a36',
-              border: '1px solid #285066',
-              color: '#cfd8dc',
+              backgroundColor: '#131814',
+              border: '1px solid #1f2721',
+              color: '#9aa69e',
               borderRadius: '4px',
               fontSize: '11px',
-              fontWeight: 600,
+              fontFamily: 'JetBrains Mono, monospace',
               cursor: 'pointer',
             }}
           >
@@ -134,14 +133,15 @@ export const AuditView: React.FC<AuditViewProps> = ({
                 disabled={scanning}
                 style={{
                   padding: '6px 18px',
-                  backgroundColor: '#00e5ff',
+                  backgroundColor: '#9bf246',
                   border: 'none',
-                  color: '#070f14',
+                  color: '#070a08',
                   borderRadius: '4px',
                   fontSize: '11px',
+                  fontFamily: 'JetBrains Mono, monospace',
                   fontWeight: 800,
                   cursor: scanning ? 'wait' : 'pointer',
-                  boxShadow: '0 0 10px rgba(0, 229, 255, 0.4)',
+                  boxShadow: '0 0 10px rgba(155, 242, 70, 0.3)',
                 }}
               >
                 {scanning ? '⏳ СКАНИРОВАНИЕ...' : '⚡ СТАТИЧЕСКИЙ АУДИТ'}
@@ -152,10 +152,11 @@ export const AuditView: React.FC<AuditViewProps> = ({
                 style={{
                   padding: '6px 12px',
                   backgroundColor: 'transparent',
-                  border: '1px solid #37474f',
-                  color: '#90a4ae',
+                  border: '1px solid #1f2721',
+                  color: '#5f6b62',
                   borderRadius: '4px',
                   fontSize: '11px',
+                  fontFamily: 'JetBrains Mono, monospace',
                   cursor: 'pointer',
                 }}
               >
@@ -171,18 +172,18 @@ export const AuditView: React.FC<AuditViewProps> = ({
         <div
           style={{
             padding: '16px',
-            backgroundColor: '#0d1c24',
-            border: '1px solid #00e5ff',
+            backgroundColor: '#0c100d',
+            border: '1px solid #9bf246',
             borderRadius: '6px',
             textAlign: 'center',
-            color: '#00e5ff',
+            color: '#9bf246',
             fontFamily: 'JetBrains Mono, monospace',
             fontSize: '12px',
-            boxShadow: '0 0 16px rgba(0, 229, 255, 0.2)',
+            boxShadow: '0 0 16px rgba(155, 242, 70, 0.2)',
           }}
         >
           <div style={{ marginBottom: '6px', fontWeight: 700 }}>[ ⟳ NATIVE ENGINE SCANNING ]</div>
-          <div style={{ color: '#88a0b0', fontSize: '11px' }}>
+          <div style={{ color: '#9aa69e', fontSize: '11px' }}>
             Потоковый разбор пула констант, эвристика ForceOP, детектор загрузчиков URLClassLoader и Discord-вебхуков...
           </div>
         </div>
@@ -196,41 +197,42 @@ export const AuditView: React.FC<AuditViewProps> = ({
             {/* Card 1: Classes */}
             <div
               style={{
-                backgroundColor: '#0d1c24',
-                border: '1px solid #1a3644',
+                backgroundColor: '#0c100d',
+                border: '1px solid #1f2721',
                 borderRadius: '6px',
                 padding: '12px 14px',
               }}
             >
-              <div style={{ fontSize: '10px', color: '#88a0b0', fontWeight: 700, letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: '10px', color: '#9aa69e', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>
                 КЛАССОВ В JAR
               </div>
-              <div style={{ fontSize: '22px', fontWeight: 800, color: '#e0f2f1', marginTop: '4px' }}>
+              <div style={{ fontSize: '20px', fontWeight: 800, color: '#eaf0ea', marginTop: '4px', fontFamily: 'JetBrains Mono, monospace' }}>
                 {report.total_classes}
               </div>
-              <div style={{ fontSize: '10px', color: '#607d8b', marginTop: '2px' }}>
-                {report.total_packages ? `${report.total_packages} пакетов` : 'Проанализировано на 100%'}
+              <div style={{ fontSize: '10px', color: '#5f6b62', marginTop: '2px', fontFamily: 'JetBrains Mono, monospace' }}>
+                {report.total_packages ? `${report.total_packages} пакетов` : 'Проанализировано 100%'}
               </div>
             </div>
 
             {/* Card 2: Obfuscator */}
             <div
               style={{
-                backgroundColor: '#0d1c24',
-                border: '1px solid #1a3644',
+                backgroundColor: '#0c100d',
+                border: '1px solid #1f2721',
                 borderRadius: '6px',
                 padding: '12px 14px',
               }}
             >
-              <div style={{ fontSize: '10px', color: '#88a0b0', fontWeight: 700, letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: '10px', color: '#9aa69e', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>
                 ОБФУСКАЦИЯ
               </div>
               <div
                 style={{
                   fontSize: '13px',
                   fontWeight: 700,
-                  color: report.obfuscator.includes('None') ? '#80cbc4' : '#ffab00',
+                  color: report.obfuscator.includes('None') ? '#9bf246' : '#ffb224',
                   marginTop: '8px',
+                  fontFamily: 'JetBrains Mono, monospace',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
@@ -239,7 +241,7 @@ export const AuditView: React.FC<AuditViewProps> = ({
               >
                 {report.obfuscator}
               </div>
-              <div style={{ fontSize: '10px', color: '#607d8b', marginTop: '2px' }}>
+              <div style={{ fontSize: '10px', color: '#5f6b62', marginTop: '2px', fontFamily: 'JetBrains Mono, monospace' }}>
                 Сигнатурный отпечаток
               </div>
             </div>
@@ -247,20 +249,20 @@ export const AuditView: React.FC<AuditViewProps> = ({
             {/* Card 3: Entropy */}
             <div
               style={{
-                backgroundColor: '#0d1c24',
-                border: '1px solid #1a3644',
+                backgroundColor: '#0c100d',
+                border: '1px solid #1f2721',
                 borderRadius: '6px',
                 padding: '12px 14px',
               }}
             >
-              <div style={{ fontSize: '10px', color: '#88a0b0', fontWeight: 700, letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: '10px', color: '#9aa69e', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>
                 ЭНТРОПИЯ ШЕННОНА
               </div>
-              <div style={{ fontSize: '22px', fontWeight: 800, color: (report.entropy || 6.2) > 7.4 ? '#ff1744' : '#00e5ff', marginTop: '4px' }}>
+              <div style={{ fontSize: '20px', fontWeight: 800, color: (report.entropy || 6.2) > 7.4 ? '#ff6f61' : '#9bf246', marginTop: '4px', fontFamily: 'JetBrains Mono, monospace' }}>
                 {(report.entropy || 7.12).toFixed(2)}{' '}
-                <span style={{ fontSize: '11px', color: '#607d8b', fontWeight: 400 }}>/ 8.00</span>
+                <span style={{ fontSize: '11px', color: '#5f6b62', fontWeight: 400 }}>/ 8.00</span>
               </div>
-              <div style={{ fontSize: '10px', color: '#607d8b', marginTop: '2px' }}>
+              <div style={{ fontSize: '10px', color: '#5f6b62', marginTop: '2px', fontFamily: 'JetBrains Mono, monospace' }}>
                 {(report.entropy || 6.2) > 7.4 ? 'Скрытые зашифрованные ресурсы' : 'Нормальное распределение'}
               </div>
             </div>
@@ -268,41 +270,43 @@ export const AuditView: React.FC<AuditViewProps> = ({
             {/* Card 4: Threat Score */}
             <div
               style={{
-                backgroundColor: '#0d1c24',
-                border: '1px solid #1a3644',
+                backgroundColor: '#0c100d',
+                border: '1px solid #1f2721',
                 borderRadius: '6px',
                 padding: '12px 14px',
               }}
             >
-              <div style={{ fontSize: '10px', color: '#88a0b0', fontWeight: 700, letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: '10px', color: '#9aa69e', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>
                 ИНДЕКС ОПАСНОСТИ
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
                 <span
                   style={{
-                    fontSize: '22px',
+                    fontSize: '20px',
                     fontWeight: 800,
+                    fontFamily: 'JetBrains Mono, monospace',
                     color: getDangerLevel(report.danger_score).color,
                   }}
                 >
                   {report.danger_score}
                 </span>
-                <span style={{ fontSize: '11px', color: '#607d8b' }}>/ 100</span>
+                <span style={{ fontSize: '11px', color: '#5f6b62', fontFamily: 'JetBrains Mono, monospace' }}>/ 100</span>
                 <span
                   style={{
-                    fontSize: '10px',
+                    fontSize: '9px',
                     fontWeight: 700,
                     padding: '1px 6px',
                     borderRadius: '3px',
                     backgroundColor: getDangerLevel(report.danger_score).bg,
                     color: getDangerLevel(report.danger_score).color,
                     marginLeft: 'auto',
+                    fontFamily: 'JetBrains Mono, monospace',
                   }}
                 >
                   {getDangerLevel(report.danger_score).label}
                 </span>
               </div>
-              <div style={{ fontSize: '10px', color: '#607d8b', marginTop: '2px' }}>
+              <div style={{ fontSize: '10px', color: '#5f6b62', marginTop: '2px', fontFamily: 'JetBrains Mono, monospace' }}>
                 Найдено угроз: {report.findings.length}
               </div>
             </div>
@@ -314,15 +318,15 @@ export const AuditView: React.FC<AuditViewProps> = ({
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              backgroundColor: '#0d1c24',
-              border: '1px solid #1a3644',
+              backgroundColor: '#0c100d',
+              border: '1px solid #1f2721',
               borderRadius: '6px',
               padding: '8px 12px',
             }}
           >
             {/* Search Input */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, maxWidth: '360px' }}>
-              <span style={{ fontSize: '13px', color: '#607d8b' }}>🔍</span>
+              <span style={{ fontSize: '12px', color: '#5f6b62' }}>🔍</span>
               <input
                 type="text"
                 placeholder="Поиск по классам, методам, инструкциям..."
@@ -332,15 +336,16 @@ export const AuditView: React.FC<AuditViewProps> = ({
                   background: 'none',
                   border: 'none',
                   outline: 'none',
-                  color: '#e0f2f1',
-                  fontSize: '12px',
+                  color: '#eaf0ea',
+                  fontSize: '11px',
+                  fontFamily: 'JetBrains Mono, monospace',
                   width: '100%',
                 }}
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  style={{ background: 'none', border: 'none', color: '#607d8b', cursor: 'pointer', fontSize: '11px' }}
+                  style={{ background: 'none', border: 'none', color: '#5f6b62', cursor: 'pointer', fontSize: '11px' }}
                 >
                   ✕
                 </button>
@@ -348,37 +353,38 @@ export const AuditView: React.FC<AuditViewProps> = ({
             </div>
 
             {/* Severity Filters */}
-            <div style={{ display: 'flex', gap: '6px' }}>
+            <div style={{ display: 'flex', gap: '4px' }}>
               {['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map((sev) => (
                 <button
                   key={sev}
                   onClick={() => setFilterSeverity(sev)}
                   style={{
                     padding: '3px 8px',
-                    borderRadius: '3px',
+                    borderRadius: '4px',
                     fontSize: '10px',
+                    fontFamily: 'JetBrains Mono, monospace',
                     fontWeight: 700,
                     cursor: 'pointer',
-                    backgroundColor: filterSeverity === sev ? '#142a36' : 'transparent',
+                    backgroundColor: filterSeverity === sev ? '#131814' : 'transparent',
                     border:
                       filterSeverity === sev
                         ? sev === 'CRITICAL'
-                          ? '1px solid #ff1744'
+                          ? '1px solid #ff6f61'
                           : sev === 'HIGH'
-                          ? '1px solid #ffab00'
-                          : '1px solid #00e5ff'
+                          ? '1px solid #ffb224'
+                          : '1px solid #9bf246'
                         : '1px solid transparent',
                     color:
                       filterSeverity === sev
                         ? sev === 'CRITICAL'
-                          ? '#ff1744'
+                          ? '#ff6f61'
                           : sev === 'HIGH'
-                          ? '#ffab00'
-                          : '#00e5ff'
-                        : '#78909c',
+                          ? '#ffb224'
+                          : '#9bf246'
+                        : '#5f6b62',
                   }}
                 >
-                  {sev === 'ALL' ? 'ВСЕ' : sev}
+                  {sev === 'ALL' ? 'ALL' : sev}
                 </button>
               ))}
             </div>
@@ -390,8 +396,8 @@ export const AuditView: React.FC<AuditViewProps> = ({
               display: 'flex',
               flexDirection: 'column',
               gap: '8px',
-              backgroundColor: '#0d1c24',
-              border: '1px solid #1a3644',
+              backgroundColor: '#0c100d',
+              border: '1px solid #1f2721',
               borderRadius: '6px',
               padding: '12px',
               maxHeight: '340px',
@@ -399,7 +405,7 @@ export const AuditView: React.FC<AuditViewProps> = ({
             }}
           >
             {filteredFindings.length === 0 ? (
-              <div style={{ color: '#00e676', fontSize: '12px', padding: '16px', textAlign: 'center' }}>
+              <div style={{ color: '#9bf246', fontSize: '12px', fontFamily: 'JetBrains Mono, monospace', padding: '16px', textAlign: 'center' }}>
                 ✓ В выбранной категории бэкдоров и уязвимостей не обнаружено.
               </div>
             ) : (
@@ -407,10 +413,10 @@ export const AuditView: React.FC<AuditViewProps> = ({
                 <div
                   key={idx}
                   style={{
-                    backgroundColor: '#12232c',
-                    border: '1px solid #1e3c4d',
-                    borderLeft: `4px solid ${
-                      f.severity === 'CRITICAL' ? '#ff1744' : f.severity === 'HIGH' ? '#ffab00' : '#00e5ff'
+                    backgroundColor: '#131814',
+                    border: '1px solid #1f2721',
+                    borderLeft: `3px solid ${
+                      f.severity === 'CRITICAL' ? '#ff6f61' : f.severity === 'HIGH' ? '#ffb224' : '#9bf246'
                     }`,
                     borderRadius: '4px',
                     padding: '10px 14px',
@@ -423,70 +429,70 @@ export const AuditView: React.FC<AuditViewProps> = ({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span
                         style={{
-                          fontSize: '10px',
+                          fontSize: '9px',
                           fontWeight: 800,
+                          fontFamily: 'JetBrains Mono, monospace',
                           padding: '2px 6px',
                           borderRadius: '3px',
                           backgroundColor:
                             f.severity === 'CRITICAL'
-                              ? 'rgba(255,23,68,0.2)'
+                              ? 'rgba(255,111,97,0.2)'
                               : f.severity === 'HIGH'
-                              ? 'rgba(255,171,0,0.2)'
-                              : 'rgba(0,229,255,0.2)',
+                              ? 'rgba(255,178,36,0.2)'
+                              : 'rgba(155,242,70,0.2)',
                           color:
                             f.severity === 'CRITICAL'
-                              ? '#ff1744'
+                              ? '#ff6f61'
                               : f.severity === 'HIGH'
-                              ? '#ffab00'
-                              : '#00e5ff',
+                              ? '#ffb224'
+                              : '#9bf246',
                         }}
                       >
                         {f.severity}
                       </span>
-                      <span style={{ fontSize: '13px', fontWeight: 700, color: '#e0f2f1' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#eaf0ea', fontFamily: 'JetBrains Mono, monospace' }}>
                         {f.category}
                       </span>
                     </div>
 
                     <button
                       onClick={() => onOpenCallGraph(f)}
-                      className="small-caps"
                       style={{
-                        backgroundColor: 'transparent',
-                        border: '1px solid #00e5ff',
-                        color: '#00e5ff',
+                        backgroundColor: '#0c100d',
+                        border: '1px solid #334139',
+                        color: '#9bf246',
                         fontSize: '10px',
-                        padding: '3px 10px',
-                        borderRadius: '3px',
+                        fontFamily: 'JetBrains Mono, monospace',
+                        padding: '3px 8px',
+                        borderRadius: '4px',
                         cursor: 'pointer',
-                        fontWeight: 700,
-                        boxShadow: '0 0 6px rgba(0, 229, 255, 0.2)',
+                        fontWeight: 600,
                       }}
                     >
-                      [ 🌐 ГРАФ ВЫЗОВОВ ]
+                      [ 🌐 CALL GRAPH ]
                     </button>
                   </div>
 
-                  <div style={{ fontSize: '11px', color: '#90a4ae', fontFamily: 'JetBrains Mono, monospace' }}>
-                    <span style={{ color: '#00e5ff' }}>{f.class}</span>#{f.method}
-                    <span style={{ color: '#607d8b', marginLeft: '8px' }}>[offset: 0x{f.offset.toString(16).toUpperCase()}]</span>
+                  <div style={{ fontSize: '11px', color: '#9aa69e', fontFamily: 'JetBrains Mono, monospace' }}>
+                    <span style={{ color: '#9bf246' }}>{f.class}</span>#{f.method}
+                    <span style={{ color: '#5f6b62', marginLeft: '8px' }}>[offset: 0x{f.offset.toString(16).toUpperCase()}]</span>
                   </div>
 
                   <div
                     style={{
                       fontSize: '11px',
                       fontFamily: 'JetBrains Mono, monospace',
-                      backgroundColor: '#081217',
+                      backgroundColor: '#070a08',
                       padding: '5px 8px',
                       borderRadius: '3px',
-                      color: '#ff5252',
-                      border: '1px solid #1a3644',
+                      color: '#ff6f61',
+                      border: '1px solid #1f2721',
                     }}
                   >
                     {f.instruction}
                   </div>
 
-                  <div style={{ fontSize: '11px', color: '#b0bec5' }}>{f.description}</div>
+                  <div style={{ fontSize: '11px', color: '#9aa69e' }}>{f.description}</div>
                 </div>
               ))
             )}
@@ -496,20 +502,20 @@ export const AuditView: React.FC<AuditViewProps> = ({
           {rawLog && (
             <div
               style={{
-                backgroundColor: '#081217',
-                border: '1px solid #1a3644',
+                backgroundColor: '#0c100d',
+                border: '1px solid #1f2721',
                 borderRadius: '6px',
                 padding: '10px 14px',
               }}
             >
-              <div style={{ fontSize: '10px', color: '#78909c', fontWeight: 700, marginBottom: '4px' }}>
+              <div style={{ fontSize: '10px', color: '#5f6b62', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, marginBottom: '4px' }}>
                 ЛОГ НАЙДЕННЫХ ИНСТРУКЦИЙ (DISASSEMBLER)
               </div>
               <pre
                 style={{
                   fontFamily: 'JetBrains Mono, monospace',
                   fontSize: '11px',
-                  color: '#80cbc4',
+                  color: '#9bf246',
                   whiteSpace: 'pre-wrap',
                   maxHeight: '90px',
                   overflowY: 'auto',

@@ -44,8 +44,9 @@ public:
         for (size_t i = 1; i < cf.constant_pool.size(); ++i) {
             if (cf.constant_pool[i].tag == CONSTANT_Utf8) {
                 const auto& s = cf.constant_pool[i].utf8_val;
-                if (s.find("NanoGuard") != std::string::npos || s.find("NANOGUARD") != std::string::npos) {
-                    return "NanoGuard Bytecode Armor";
+                if (s.find("aegis") != std::string::npos || s.find("Aegis") != std::string::npos ||
+                    s.find("dev/aegisforge") != std::string::npos) {
+                    return "AegisForge / Custom Dropper Armor";
                 }
                 if (s.find("ALLATORIdemo") != std::string::npos || s.find("allatori") != std::string::npos) {
                     return "Allatori Obfuscator";
@@ -58,6 +59,9 @@ public:
                 }
                 if (s.find("ProGuard") != std::string::npos) {
                     return "ProGuard";
+                }
+                if (s.find("$NGWM$") != std::string::npos || s.find("NanoGuardArmor") != std::string::npos) {
+                    return "NanoGuard Bytecode Armor (Authentic)";
                 }
             }
         }
@@ -195,6 +199,39 @@ public:
                     f.instruction_str = "CONSTANT_Utf8: " + s;
                     f.description = "Обнаружена ссылка на сырой удалённый исполняемый пейлоад (Pastebin/Transfer).";
                     f.snippet = "URL: " + s;
+                    findings.push_back(f);
+                }
+
+                // 1.8 AegisForge / Dropper Framework IOCs
+                if (s.find("dev/aegisforge") != std::string::npos ||
+                    s.find("Aegis-Patrol") != std::string::npos ||
+                    s.find("AEGIS_SECURITY_VIOLATION") != std::string::npos ||
+                    s.find("AegisSecurityGuard") != std::string::npos ||
+                    s.find("AegisArmorTrap") != std::string::npos) {
+                    HunterFinding f;
+                    f.category = "Obfuscated Native Dropper (AegisForge)";
+                    f.severity = "CRITICAL";
+                    f.class_name = class_name;
+                    f.method_name = "<constant_pool>";
+                    f.offset = i;
+                    f.instruction_str = "CONSTANT_Utf8: " + s;
+                    f.description = "Обнаружен компонент вредоносного фреймворка AegisForge (скрытые зашифрованные блобы, патруль процессов и анти-отладка).";
+                    f.snippet = "Aegis IOC: " + s;
+                    findings.push_back(f);
+                }
+
+                // 1.9 Defense Evasion: Spoofed NanoGuard / Decompiler Reject
+                if (s.find("NANOGUARD_AEGIS") != std::string::npos ||
+                    s.find("DECOMPILER_REJECT") != std::string::npos) {
+                    HunterFinding f;
+                    f.category = "Defense Evasion / Spoofed Signature";
+                    f.severity = "CRITICAL";
+                    f.class_name = class_name;
+                    f.method_name = "<constant_pool>";
+                    f.offset = i;
+                    f.instruction_str = "CONSTANT_Utf8: " + s;
+                    f.description = "Попытка подделки цифровой подписи NanoGuard для обхода защитного аудитора.";
+                    f.snippet = "Spoof signature: " + s;
                     findings.push_back(f);
                 }
             }

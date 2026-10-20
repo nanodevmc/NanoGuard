@@ -9,6 +9,10 @@ export interface ProtectOptions {
   stripLvt: boolean;
   encryptStrings: boolean;
   antiDecompile: boolean;
+  enableVm?: boolean;
+  antiTamper?: boolean;
+  encryptClasses?: boolean;
+  ownerName?: string;
   outputPath?: string;
 }
 
@@ -20,4 +24,6 @@ contextBridge.exposeInMainWorld('nanoGuardAPI', {
   openPath: (path: string) => ipcRenderer.invoke('open-path', path),
   getSystemStats: () => ipcRenderer.invoke('get-system-stats'),
   windowControl: (action: 'minimize' | 'maximize' | 'close') => ipcRenderer.send('window-control', action),
+  checkOtaUpdates: () => ipcRenderer.invoke('check-ota-updates'),
+  downloadOtaModule: (downloadUrl: string, targetFileName: string) => ipcRenderer.invoke('download-ota-module', downloadUrl, targetFileName),
 });

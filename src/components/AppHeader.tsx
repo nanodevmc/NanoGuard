@@ -24,42 +24,41 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '8px 16px',
-        backgroundColor: '#0a151d',
-        borderBottom: '1px solid #1a3644',
+        backgroundColor: '#0c100d',
+        borderBottom: '1px solid #1f2721',
       }}
     >
       {/* Navigation tabs */}
-      <div style={{ display: 'flex', gap: '8px' }}>
+      <div style={{ display: 'flex', gap: '6px' }}>
         <button
           id="tab-audit"
           onClick={() => onTabChange('audit')}
-          className="small-caps"
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            padding: '7px 16px',
-            backgroundColor: activeTab === 'audit' ? '#132733' : 'transparent',
-            border: activeTab === 'audit' ? '1px solid #00e5ff' : '1px solid transparent',
-            color: activeTab === 'audit' ? '#00e5ff' : '#88a0b0',
-            borderRadius: '4px',
+            padding: '6px 14px',
+            backgroundColor: activeTab === 'audit' ? '#131814' : 'transparent',
+            border: activeTab === 'audit' ? '1px solid #334139' : '1px solid transparent',
+            color: activeTab === 'audit' ? '#9bf246' : '#9aa69e',
+            borderRadius: '6px',
             fontSize: '12px',
-            fontWeight: 700,
+            fontFamily: 'JetBrains Mono, monospace',
+            fontWeight: 600,
             cursor: 'pointer',
-            boxShadow: activeTab === 'audit' ? '0 0 12px rgba(0, 229, 255, 0.25)' : 'none',
             transition: 'all 0.15s ease',
           }}
         >
           <span>🛡️</span>
-          <span>[ ʙᴀᴄᴋᴅᴏᴏʀ ʜᴜɴᴛᴇʀ ]</span>
+          <span>BACKDOOR HUNTER</span>
           {threatCount > 0 && (
             <span
               style={{
                 fontSize: '10px',
                 padding: '1px 6px',
                 borderRadius: '10px',
-                backgroundColor: '#ff1744',
-                color: '#fff',
+                backgroundColor: '#ff6f61',
+                color: '#070a08',
                 fontWeight: 800,
               }}
             >
@@ -71,104 +70,102 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         <button
           id="tab-protect"
           onClick={() => onTabChange('protect')}
-          className="small-caps"
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            padding: '7px 16px',
-            backgroundColor: activeTab === 'protect' ? '#132733' : 'transparent',
-            border: activeTab === 'protect' ? '1px solid #00e676' : '1px solid transparent',
-            color: activeTab === 'protect' ? '#00e676' : '#88a0b0',
-            borderRadius: '4px',
+            padding: '6px 14px',
+            backgroundColor: activeTab === 'protect' ? '#131814' : 'transparent',
+            border: activeTab === 'protect' ? '1px solid #334139' : '1px solid transparent',
+            color: activeTab === 'protect' ? '#9bf246' : '#9aa69e',
+            borderRadius: '6px',
             fontSize: '12px',
-            fontWeight: 700,
+            fontFamily: 'JetBrains Mono, monospace',
+            fontWeight: 600,
             cursor: 'pointer',
-            boxShadow: activeTab === 'protect' ? '0 0 12px rgba(0, 230, 118, 0.25)' : 'none',
             transition: 'all 0.15s ease',
           }}
         >
           <span>🔒</span>
-          <span>[ ʙʏᴛᴇᴄᴏᴅᴇ ᴀʀᴍᴏʀ ]</span>
+          <span>BYTECODE ARMOR</span>
         </button>
 
         <button
           id="tab-console"
           onClick={() => onTabChange('console')}
-          className="small-caps"
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            padding: '7px 16px',
-            backgroundColor: activeTab === 'console' ? '#132733' : 'transparent',
-            border: activeTab === 'console' ? '1px solid #ffab00' : '1px solid transparent',
-            color: activeTab === 'console' ? '#ffab00' : '#88a0b0',
-            borderRadius: '4px',
+            padding: '6px 14px',
+            backgroundColor: activeTab === 'console' ? '#131814' : 'transparent',
+            border: activeTab === 'console' ? '1px solid #334139' : '1px solid transparent',
+            color: activeTab === 'console' ? '#9bf246' : '#9aa69e',
+            borderRadius: '6px',
             fontSize: '12px',
-            fontWeight: 700,
+            fontFamily: 'JetBrains Mono, monospace',
+            fontWeight: 600,
             cursor: 'pointer',
-            boxShadow: activeTab === 'console' ? '0 0 12px rgba(255, 171, 0, 0.25)' : 'none',
             transition: 'all 0.15s ease',
           }}
         >
-          <span>📟</span>
-          <span>[ ʟɪᴠᴇ ᴄᴏɴꜱᴏʟᴇ ]</span>
+          <span>⚡</span>
+          <span>TERMINAL</span>
         </button>
       </div>
 
       {/* Right controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         {selectedJar && (
           <div
             style={{
               fontSize: '11px',
               fontFamily: 'JetBrains Mono, monospace',
-              color: '#80cbc4',
-              backgroundColor: '#10222c',
+              color: '#9bf246',
+              backgroundColor: '#131814',
               padding: '4px 10px',
-              borderRadius: '3px',
-              border: '1px solid #1a3644',
-              maxWidth: '220px',
+              borderRadius: '4px',
+              border: '1px solid #1f2721',
+              maxWidth: '240px',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
             }}
             title={selectedJar}
           >
-            📦 {selectedJar.split(/[/\\]/).pop()}
+            JAR: {selectedJar.split(/[/\\]/).pop()}
           </div>
         )}
 
         <button
           onClick={onOpenSettings}
-          className="small-caps"
           title="Настройки NanoGuard"
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            padding: '6px 12px',
-            backgroundColor: '#10222c',
-            border: '1px solid #1a3644',
-            color: '#b0bec5',
+            padding: '5px 12px',
+            backgroundColor: '#131814',
+            border: '1px solid #1f2721',
+            color: '#9aa69e',
             borderRadius: '4px',
             fontSize: '11px',
+            fontFamily: 'JetBrains Mono, monospace',
             fontWeight: 600,
             cursor: 'pointer',
-            transition: 'all 0.15s',
+            transition: 'all 0.15s ease',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = '#00e5ff';
-            e.currentTarget.style.color = '#00e5ff';
+            e.currentTarget.style.borderColor = '#9bf246';
+            e.currentTarget.style.color = '#eaf0ea';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = '#1a3644';
-            e.currentTarget.style.color = '#b0bec5';
+            e.currentTarget.style.borderColor = '#1f2721';
+            e.currentTarget.style.color = '#9aa69e';
           }}
         >
-          <span>⚙️</span>
-          <span>[ ɴᴀꜱᴛʀᴏʏᴋɪ ]</span>
+          <span>⚙</span>
+          <span>SETTINGS</span>
         </button>
       </div>
     </div>

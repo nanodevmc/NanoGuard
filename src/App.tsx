@@ -198,8 +198,8 @@ export const App: React.FC = () => {
         display: 'flex',
         flexDirection: 'column',
         height: '100vh',
-        backgroundColor: '#070f14',
-        color: '#e0f2f1',
+        backgroundColor: '#070a08',
+        color: '#eaf0ea',
         overflow: 'hidden',
       }}
     >

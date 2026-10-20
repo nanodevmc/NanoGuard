@@ -58,12 +58,19 @@ pub fn scan_jar<P: AsRef<Path>>(path: P) -> Result<JarScanReport, String> {
         }
     }
 
+    let rules = crate::yara::builtin_rules();
+
     // Parallel processing with Rayon
     let results: Vec<(Vec<ThreatFinding>, f64)> = class_entries
         .par_iter()
         .map(|(name, bytes)| {
             let entropy = shannon_entropy(bytes);
-            let threats = MalwareScanner::scan_class_bytes(name, bytes);
+            let mut threats = MalwareScanner::scan_class_bytes(name, bytes);
+            for rule in &rules {
+                if let Some(finding) = crate::yara::match_rule(rule, bytes, name) {
+                    threats.push(finding);
+                }
+            }
             (threats, entropy)
         })
         .collect();

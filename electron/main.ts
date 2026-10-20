@@ -1,12 +1,36 @@
-import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, nativeImage } from 'electron';
 import * as path from 'path';
 import * as os from 'os';
 import { spawn } from 'child_process';
 import * as fs from 'fs';
+import { OtaManager } from './ota';
+
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.nanodev.nanoguard');
+}
 
 let mainWindow: BrowserWindow | null = null;
 
+function getAppIcon(): string | undefined {
+  const iconName = process.platform === 'win32' ? 'icon.ico' : 'icon.png';
+  const candidates = [
+    path.join(__dirname, '../../build', iconName),
+    path.join(__dirname, '../../resources/engine', iconName),
+    path.join(process.cwd(), 'build', iconName),
+    path.join(process.cwd(), 'resources/engine', iconName),
+    path.join(process.resourcesPath, 'engine', iconName),
+    path.join(process.resourcesPath, iconName),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return undefined;
+}
+
 function getEngineBinary(name: string): string | null {
+  const overridden = OtaManager.getOverriddenBinary(name);
+  if (overridden) return overridden;
+
   const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
   const exeName = process.platform === 'win32' ? `${name}.exe` : name;
 
@@ -36,13 +60,17 @@ function getEngineBinary(name: string): string | null {
 }
 
 function createWindow() {
+  const iconPath = getAppIcon();
+  const winIcon = iconPath ? nativeImage.createFromPath(iconPath) : undefined;
+
   mainWindow = new BrowserWindow({
-    width: 1120,
+    width: 1140,
     height: 760,
-    minWidth: 920,
+    minWidth: 940,
     minHeight: 640,
     frame: false,
-    backgroundColor: '#0a151d',
+    icon: winIcon || iconPath,
+    backgroundColor: '#070a08',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -50,6 +78,10 @@ function createWindow() {
       sandbox: false,
     },
   });
+
+  if (winIcon && mainWindow) {
+    mainWindow.setIcon(winIcon);
+  }
 
   const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
   if (isDev && process.env.VITE_DEV_SERVER_URL) {
@@ -190,22 +222,18 @@ ipcMain.handle('audit-jar', async (_event, jarPath: string, preferredEngine?: 'c
     });
   };
 
-  // 1. If Rust engine requested and available
   if (preferredEngine === 'rust' && fastscanBin) {
     return executeFastScan();
   }
 
-  // 2. If C++ engine available
   if (nanoguardBin) {
     return executeCppHunter();
   }
 
-  // 3. Fallback to FastScan if C++ not found
   if (fastscanBin) {
     return executeFastScan();
   }
 
-  // Realistic fallback when native engine is not yet compiled
   return getFallbackAudit(jarPath);
 });
 
@@ -270,6 +298,10 @@ ipcMain.handle('protect-jar', async (_event, options: {
   stripLvt: boolean;
   encryptStrings: boolean;
   antiDecompile: boolean;
+  enableVm?: boolean;
+  antiTamper?: boolean;
+  encryptClasses?: boolean;
+  ownerName?: string;
   outputPath?: string;
 }) => {
   const inputJar = options.jarPath;
@@ -283,6 +315,10 @@ ipcMain.handle('protect-jar', async (_event, options: {
       if (options.stripLvt) args.push('--strip-lvt');
       if (options.encryptStrings) args.push('--encrypt-strings');
       if (options.antiDecompile) args.push('--anti-decompile');
+      if (options.enableVm) args.push('--vm');
+      if (options.antiTamper) args.push('--antitamper');
+      if (options.encryptClasses) args.push('--encrypt-classes');
+      if (options.ownerName) args.push('--owner', options.ownerName);
 
       const child = spawn(nanoguardBin, args);
       let stdout = '';
@@ -320,13 +356,11 @@ ipcMain.handle('protect-jar', async (_event, options: {
       });
 
       child.on('error', (err) => {
-        // Fallback: write file copy so it always exists on disk
         writeFallbackProtectedJar(inputJar, outputJar, options, err.message, resolve);
       });
     });
   }
 
-  // Development/offline mode fallback: ensure protected jar is saved to disk
   return new Promise((resolve) => {
     writeFallbackProtectedJar(inputJar, outputJar, options, null, resolve);
   });
@@ -343,7 +377,6 @@ function writeFallbackProtectedJar(
     if (fs.existsSync(inputJar)) {
       fs.copyFileSync(inputJar, outputJar);
     } else {
-      // Create valid zip buffer dummy if input doesn't exist
       fs.writeFileSync(outputJar, Buffer.from([0x50, 0x4b, 0x05, 0x06, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]));
     }
 
@@ -394,4 +427,14 @@ ipcMain.on('window-control', (_event, action) => {
   else if (action === 'maximize') {
     mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
   } else if (action === 'close') mainWindow.close();
+});
+
+// IPC: OTA Updates
+ipcMain.handle('check-ota-updates', async () => {
+  const currentVersion = app.getVersion();
+  return await OtaManager.checkForUpdates(currentVersion);
+});
+
+ipcMain.handle('download-ota-module', async (_event, downloadUrl: string, targetFileName: string) => {
+  return await OtaManager.downloadModule(downloadUrl, targetFileName);
 });

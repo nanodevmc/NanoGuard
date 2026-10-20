@@ -338,7 +338,7 @@ jobs:
           fi
 
   publish-release:
-    name: Publish Official GitHub Release (v0.1.1)
+    name: Publish Official GitHub Release (v0.1.2)
     needs: [build-cpp-engine, build-rust-fastscan, test-protected-plugin-server, build-and-verify-macos, build-gui-windows, build-gui-linux]
     runs-on: ubuntu-latest
     steps:
@@ -375,13 +375,13 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.1.1
-          name: "NanoGuard v0.1.1 - Native Bytecode Armor & Backdoor Hunter"
+          tag_name: v0.1.2
+          name: "NanoGuard v0.1.2 - Advanced Security Suite & OTA Modules"
           draft: false
           prerelease: false
           files: release-ready/*
           body: |
-            # ɴᴀɴᴏɢᴜᴀʀᴅ v0.1.1
+            # ɴᴀɴᴏɢᴜᴀʀᴅ v0.1.2
             ### Native Bytecode Armor & Backdoor Hunter
 
             Официальный релиз **NanoGuard** — брата-близнеца [NanoDecompiler](https://github.com/NanoDev1488/NanoDecompiler).

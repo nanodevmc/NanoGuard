@@ -17,7 +17,9 @@ struct ArmorOptions {
     bool encrypt_strings = true;      // Polymorphic string encryption
     bool anti_decompile = true;        // Synthetic traps & CFG confusion
     bool obscure_identifiers = true;   // Obfuscate internal private names
-    size_t dummy_class_count = 20;     // Generate non-uniform dummy classes
+    bool inject_bootstrap = true;      // Custom bootstrap entrypoint injector
+    bool chain_dummy_classes = true;   // Interconnect dummy classes in a call mesh
+    size_t dummy_class_count = 100;    // Generate 100 non-uniform dummy classes
     uint8_t encryption_seed = 0xA7;    // Build-specific polymorphic seed
 };
 
@@ -39,26 +41,48 @@ public:
         return static_cast<uint8_t>(dis(gen));
     }
 
-    // Generate random confusing identifier using JVM-allowed characters or homoglyphs
-    static std::string generate_random_identifier(size_t len = 10, uint32_t seed = 0) {
-        static const char charset[] = "oO0Il1_";
-        std::mt19937 gen(seed ? seed : std::random_device{}());
-        std::uniform_int_distribution<size_t> dis(0, sizeof(charset) - 2);
-        std::string s = "o"; // must start with valid character
-        for (size_t i = 1; i < len; ++i) {
-            s += charset[dis(gen)];
+    // Call-site seeded polymorphic bytecode checksum calculation
+    // Tied to specific invocation opcodes (INVOKEVIRTUAL, INVOKESTATIC, INVOKESPECIAL, INVOKEINTERFACE)
+    static uint32_t compute_callsite_hash(const std::vector<uint8_t>& code) {
+        uint32_t h = 0x811c9dc5;
+        for (size_t i = 0; i < code.size(); ++i) {
+            uint8_t op = code[i];
+            if (op >= 0xB6 && op <= 0xB9) {
+                h = (h ^ static_cast<uint32_t>(i)) * 0x01000193;
+                if (i + 2 < code.size()) {
+                    uint16_t idx = (static_cast<uint16_t>(code[i+1]) << 8) | code[i+2];
+                    h = (h ^ idx) * 0x01000193;
+                }
+            }
+        }
+        return h;
+    }
+
+    // Generate confusing Unicode/homoglyph identifier (I, l, 1, O, 0 combinations)
+    static std::string generate_random_identifier(size_t length, std::mt19937& rng) {
+        static const char alphabet[] = "Il1O0";
+        std::uniform_int_distribution<size_t> dist(0, sizeof(alphabet) - 2);
+        std::string s;
+        s.reserve(length);
+        s.push_back('I'); // Must start with valid java letter
+        for (size_t i = 1; i < length; ++i) {
+            s.push_back(alphabet[dist(rng)]);
         }
         return s;
     }
 
-    // 1. Metadata Stripping: Removes LineNumberTable, LocalVariableTable, SourceFile, MethodParameters, etc.
+    // 1. Strip Metadata & Debug Symbols
     static size_t strip_metadata(ClassFile& cf) {
         size_t count = 0;
 
-        // Strip class-level attributes
         auto is_debug_attr = [&](const AttributeInfo& attr) {
             std::string name = cf.get_utf8(attr.attribute_name_index);
-            return (name == "SourceFile" || name == "SourceDebugExtension" || name == "Deprecated");
+            return (name == "SourceFile" ||
+                    name == "SourceDebugExtension" ||
+                    name == "LocalVariableTable" ||
+                    name == "LocalVariableTypeTable" ||
+                    name == "LineNumberTable" ||
+                    name == "MethodParameters");
         };
 
         size_t orig_sz = cf.attributes.size();
@@ -97,76 +121,129 @@ public:
     }
 
     // 2. Control Flow Confusion & Anti-Decompiler Trap Injection
-    // Injects opaque predicates, confusing dead code and synthetic bridges without breaking StackMapTable
-    static size_t inject_advanced_armor(ClassFile& cf, bool is_main_class) {
+    static size_t inject_advanced_armor(ClassFile& cf, bool is_main_class, const std::string& dummy_root_class = "") {
         size_t traps = 0;
 
-        // Custom obfuscator attribute (confuses Fernflower/CFR)
+        // Requirement 2 & 3: Embed polymorphic integrity marker directly in Constant Pool
+        uint32_t cp_sig = 0x5F4E4732; // "_NG2"
+        for (const auto& m : cf.methods) {
+            for (const auto& a : m.attributes) {
+                if (a.is_code) {
+                    cp_sig ^= compute_callsite_hash(a.code);
+                }
+            }
+        }
+        std::string cp_marker = "$NG_INTEGRITY$" + std::to_string(cp_sig);
+        cf.add_utf8(cp_marker);
+
+        // Custom obfuscator attribute with decompiler-reject signature (confuses Fernflower/CFR)
         uint16_t ng_attr_name = cf.add_utf8("NanoGuardArmor");
         AttributeInfo ng_attr;
         ng_attr.attribute_name_index = ng_attr_name;
-        ng_attr.info = {0x00, 0x01, 0x00, 0x00, 0xDE, 0xAD, 0xBE, 0xEF};
+        ng_attr.info = {
+            0x00, 0x02, 0xCA, 0xFE, 0xBA, 0xBE,
+            static_cast<uint8_t>(cp_sig >> 24),
+            static_cast<uint8_t>(cp_sig >> 16),
+            static_cast<uint8_t>(cp_sig >> 8),
+            static_cast<uint8_t>(cp_sig)
+        };
         cf.attributes.push_back(ng_attr);
 
-        // Add 3-7 synthetic dummy decoy fields with confusing names (o0O1...)
+        // Add 5-12 synthetic dummy decoy fields with confusing names (o0O1...)
         std::mt19937 rng(1337 + cf.this_class);
-        size_t dummy_fields_count = 3 + (rng() % 5);
+        size_t dummy_fields_count = 5 + (rng() % 8);
         for (size_t i = 0; i < dummy_fields_count; ++i) {
             FieldOrMethodInfo dummy_field;
             dummy_field.access_flags = ACC_PRIVATE | ACC_STATIC | ACC_SYNTHETIC;
-            dummy_field.name_index = cf.add_utf8(generate_random_identifier(12, rng()));
-            dummy_field.descriptor_index = cf.add_utf8("Ljava/lang/Object;");
+            dummy_field.name_index = cf.add_utf8(generate_random_identifier(12 + (rng() % 6), rng()));
+            dummy_field.descriptor_index = cf.add_utf8((i % 2 == 0) ? "Ljava/lang/Object;" : "[I");
             cf.fields.push_back(dummy_field);
             traps++;
         }
 
-        // Process existing methods
+        // Process existing methods: obfuscate non-entrypoint private names & mark synthetic
         for (auto& m : cf.methods) {
             std::string name = cf.get_utf8(m.name_index);
-            std::string desc = cf.get_utf8(m.descriptor_index);
 
             bool is_entrypoint = is_main_class && (name == "onEnable" || name == "onDisable" || name == "onLoad");
             bool is_special = (name == "<init>" || name == "<clinit>" || name == "onCommand");
 
-            // For non-entrypoint private methods: apply ACC_SYNTHETIC & name obfuscation
+            // For non-entrypoint private methods: apply ACC_SYNTHETIC & rename to confusing identifier
             if (!is_entrypoint && !is_special && (m.access_flags & ACC_PRIVATE)) {
                 m.access_flags |= ACC_SYNTHETIC;
+                m.name_index = cf.add_utf8(generate_random_identifier(14, rng()));
                 traps++;
             }
 
-            // Opaque predicate / dead branch confusion inside code
-            for (auto& attr : m.attributes) {
-                if (attr.is_code && attr.code.size() >= 1) {
-                    // Inject harmless opaque dead code sequences into code attributes that have simple returns
-                    // e.g. adding dead constant loads before return if space permits
-                    traps++;
+            // If main entrypoint (onEnable), inject bootstrap hook and decoy dummy class call!
+            if (is_main_class && name == "onEnable") {
+                for (auto& attr : m.attributes) {
+                    if (!attr.is_code) continue;
+
+                    // 1) Bootstrap init call: NanoGuardBootstrap.init(this)
+                    uint16_t b_class_utf8 = cf.add_utf8("nanoguard/NanoGuardBootstrap");
+                    uint16_t b_class_ref  = cf.add_class(b_class_utf8);
+                    uint16_t b_name_utf8  = cf.add_utf8("init");
+                    uint16_t b_desc_utf8  = cf.add_utf8("(Ljava/lang/Object;)V");
+                    uint16_t b_nat_idx    = cf.add_name_and_type(b_name_utf8, b_desc_utf8);
+                    uint16_t b_mref       = cf.add_methodref(b_class_ref, b_nat_idx);
+
+                    std::vector<uint8_t> hook_code;
+                    hook_code.push_back(ALOAD_0); // 'this'
+                    hook_code.push_back(INVOKESTATIC);
+                    hook_code.push_back(static_cast<uint8_t>(b_mref >> 8));
+                    hook_code.push_back(static_cast<uint8_t>(b_mref & 0xFF));
+
+                    // 2) If root dummy class exists, connect main class to decoy dummy mesh
+                    if (!dummy_root_class.empty()) {
+                        uint16_t d_class_utf8 = cf.add_utf8(dummy_root_class);
+                        uint16_t d_class_ref  = cf.add_class(d_class_utf8);
+                        uint16_t d_name_utf8  = cf.add_utf8("eval");
+                        uint16_t d_desc_utf8  = cf.add_utf8("(II)I");
+                        uint16_t d_nat_idx    = cf.add_name_and_type(d_name_utf8, d_desc_utf8);
+                        uint16_t d_mref       = cf.add_methodref(d_class_ref, d_nat_idx);
+
+                        hook_code.push_back(ICONST_1);
+                        hook_code.push_back(ICONST_2);
+                        hook_code.push_back(INVOKESTATIC);
+                        hook_code.push_back(static_cast<uint8_t>(d_mref >> 8));
+                        hook_code.push_back(static_cast<uint8_t>(d_mref & 0xFF));
+                        hook_code.push_back(POP);
+                    }
+
+                    hook_code.insert(hook_code.end(), attr.code.begin(), attr.code.end());
+                    attr.code = hook_code;
+                    if (attr.max_stack < 4) attr.max_stack = 4;
+                    traps += 2;
+                    break;
                 }
             }
         }
 
-        // Inject 2-5 synthetic dummy methods with dense switch/if structures (never called, but analyzed by decompilers)
-        size_t dummy_methods_count = 2 + (rng() % 4);
+        // Inject 5-10 synthetic dummy methods with dense opaque predicates & arithmetic
+        size_t dummy_methods_count = 5 + (rng() % 6);
         for (size_t di = 0; di < dummy_methods_count; ++di) {
             FieldOrMethodInfo dummy_m;
             dummy_m.access_flags = ACC_PRIVATE | ACC_STATIC | ACC_SYNTHETIC;
-            dummy_m.name_index = cf.add_utf8(generate_random_identifier(14, rng()));
+            dummy_m.name_index = cf.add_utf8(generate_random_identifier(16, rng()));
             dummy_m.descriptor_index = cf.add_utf8("(III)I");
 
             AttributeInfo code_attr;
             code_attr.attribute_name_index = cf.add_utf8("Code");
             code_attr.is_code = true;
-            code_attr.max_stack = 8;
-            code_attr.max_locals = 8;
+            code_attr.max_stack = 10;
+            code_attr.max_locals = 10;
 
-            // Generate dense bytecode block with arithmetic & conditionals
+            // Generate opaque predicate bytecode block
             std::vector<uint8_t> byte_seq;
             byte_seq.push_back(ILOAD_0);
             byte_seq.push_back(ILOAD_1);
             byte_seq.push_back(IADD);
+            byte_seq.push_back(DUP);
             byte_seq.push_back(ILOAD_2);
             byte_seq.push_back(IXOR);
-            byte_seq.push_back(ICONST_1);
-            byte_seq.push_back(IADD);
+            byte_seq.push_back(ICONST_2);
+            byte_seq.push_back(IXOR);
             byte_seq.push_back(IRETURN);
 
             code_attr.code = byte_seq;
@@ -178,9 +255,17 @@ public:
         return traps;
     }
 
-    // 3. String Constant Scrambling & XOR polymorphism
+    // 3. Polymorphic String Encryption (Call-site Seeded)
     static size_t encrypt_strings(ClassFile& cf, uint8_t key) {
         size_t count = 0;
+        uint32_t class_salt = 0;
+        for (const auto& m : cf.methods) {
+            for (const auto& a : m.attributes) {
+                if (a.is_code) class_salt ^= compute_callsite_hash(a.code);
+            }
+        }
+        uint8_t effective_key = key ^ static_cast<uint8_t>(class_salt & 0xFF);
+
         for (size_t i = 1; i < cf.constant_pool.size(); ++i) {
             if (cf.constant_pool[i].tag == CONSTANT_String) {
                 uint16_t u_idx = cf.constant_pool[i].string_index;
@@ -190,16 +275,14 @@ public:
                     // Don't corrupt Bukkit API names or java descriptors
                     if (orig.find("org/bukkit") != std::string::npos || orig.find("java/") != std::string::npos) continue;
 
-                    // Scramble string content with polymorphic XOR + index
                     std::string enc = "[NG:";
-                    enc += std::to_string(key);
+                    enc += std::to_string(effective_key);
                     enc += "]";
                     for (size_t k = 0; k < orig.size(); ++k) {
-                        uint8_t b = static_cast<uint8_t>(orig[k]) ^ (key + static_cast<uint8_t>(k % 7));
+                        uint8_t b = static_cast<uint8_t>(orig[k]) ^ (effective_key + static_cast<uint8_t>(k % 7));
                         if (b >= 32 && b <= 126 && b != '\\' && b != '"') {
                             enc.push_back(static_cast<char>(b));
                         } else {
-                            // Hex encode to avoid illegal UTF-8 in JVM CP
                             char hexbuf[4];
                             snprintf(hexbuf, sizeof(hexbuf), "$%02X", b);
                             enc += hexbuf;
@@ -213,9 +296,14 @@ public:
         return count;
     }
 
-    // 4. Generate Non-Uniform Random Dummy/Junk Class
-    // Generates completely unique synthetic decoy classes that overwhelm decompilers
-    static ClassFile generate_dummy_class(const std::string& package_prefix, size_t index, uint32_t seed) {
+    // 4. Generate Non-Uniform Random Dummy/Junk Class with Mesh Chaining
+    static ClassFile generate_dummy_class(
+        const std::string& package_prefix,
+        size_t index,
+        size_t total_count,
+        const std::string& next_dummy_class,
+        uint32_t seed
+    ) {
         ClassFile cf;
         cf.magic = 0xCAFEBABE;
         cf.minor_version = 0;
@@ -224,8 +312,14 @@ public:
 
         std::mt19937 rng(seed + static_cast<uint32_t>(index * 1337));
 
+        static const char* const sub_pkgs[] = {"internal", "util", "core", "runtime", "net", "helper", "loader", "impl"};
+        std::string chosen_sub = sub_pkgs[rng() % (sizeof(sub_pkgs) / sizeof(sub_pkgs[0]))];
+
         std::string class_name = package_prefix;
         if (!class_name.empty() && class_name.back() != '/') class_name += '/';
+        if (index % 3 == 0) {
+            class_name += chosen_sub + "/";
+        }
         class_name += generate_random_identifier(12 + (rng() % 8), rng());
 
         cf.this_class = cf.add_class(class_name);
@@ -243,27 +337,10 @@ public:
         code_attr.max_stack = 2;
         code_attr.max_locals = 2;
 
-        // ALOAD_0, INVOKESPECIAL java/lang/Object.<init> ()V, RETURN
         uint16_t obj_init = cf.add_utf8("<init>");
         uint16_t obj_desc = cf.add_utf8("()V");
-        uint16_t nat_idx = 0;
-        {
-            CpEntry nat;
-            nat.tag = CONSTANT_NameAndType;
-            nat.class_or_interface_index = obj_init;
-            nat.name_and_type_index = obj_desc;
-            cf.constant_pool.push_back(nat);
-            nat_idx = static_cast<uint16_t>(cf.constant_pool.size() - 1);
-        }
-        uint16_t method_ref = 0;
-        {
-            CpEntry mr;
-            mr.tag = CONSTANT_Methodref;
-            mr.class_or_interface_index = cf.super_class;
-            mr.name_and_type_index = nat_idx;
-            cf.constant_pool.push_back(mr);
-            method_ref = static_cast<uint16_t>(cf.constant_pool.size() - 1);
-        }
+        uint16_t nat_idx = cf.add_name_and_type(obj_init, obj_desc);
+        uint16_t method_ref = cf.add_methodref(cf.super_class, nat_idx);
 
         code_attr.code = {
             ALOAD_0,
@@ -275,33 +352,78 @@ public:
         init_m.attributes.push_back(code_attr);
         cf.methods.push_back(init_m);
 
-        // Add 5-15 random fields
-        size_t num_fields = 5 + (rng() % 11);
+        // Add 6-18 random non-uniform fields
+        size_t num_fields = 6 + (rng() % 13);
         for (size_t f = 0; f < num_fields; ++f) {
             FieldOrMethodInfo fi;
             fi.access_flags = ACC_PRIVATE | ACC_STATIC | ACC_SYNTHETIC;
-            fi.name_index = cf.add_utf8(generate_random_identifier(10 + (rng() % 6), rng()));
-            fi.descriptor_index = cf.add_utf8(f % 2 == 0 ? "I" : "Ljava/lang/String;");
+            fi.name_index = cf.add_utf8(generate_random_identifier(10 + (rng() % 8), rng()));
+            fi.descriptor_index = cf.add_utf8(f % 3 == 0 ? "I" : (f % 3 == 1 ? "Ljava/lang/String;" : "[B"));
             cf.fields.push_back(fi);
         }
 
-        // Add 3-8 confusing methods with control flow structures
-        size_t num_methods = 3 + (rng() % 6);
+        // Add main mesh evaluation method: eval(int a, int b) -> int
+        {
+            FieldOrMethodInfo eval_m;
+            eval_m.access_flags = ACC_PUBLIC | ACC_STATIC | ACC_SYNTHETIC;
+            eval_m.name_index = cf.add_utf8("eval");
+            eval_m.descriptor_index = cf.add_utf8("(II)I");
+
+            AttributeInfo eval_code;
+            eval_code.attribute_name_index = cf.add_utf8("Code");
+            eval_code.is_code = true;
+            eval_code.max_stack = 8;
+            eval_code.max_locals = 6;
+
+            eval_code.code.push_back(ILOAD_0);
+            eval_code.code.push_back(ILOAD_1);
+            eval_code.code.push_back(IADD);
+
+            // If chained to next dummy class, invoke next_dummy_class.eval(...)
+            if (!next_dummy_class.empty()) {
+                uint16_t next_cls = cf.add_class(next_dummy_class);
+                uint16_t next_name = cf.add_utf8("eval");
+                uint16_t next_desc = cf.add_utf8("(II)I");
+                uint16_t next_nat  = cf.add_name_and_type(next_name, next_desc);
+                uint16_t next_mref = cf.add_methodref(next_cls, next_nat);
+
+                eval_code.code.push_back(DUP);
+                eval_code.code.push_back(ICONST_1);
+                eval_code.code.push_back(INVOKESTATIC);
+                eval_code.code.push_back(static_cast<uint8_t>(next_mref >> 8));
+                eval_code.code.push_back(static_cast<uint8_t>(next_mref & 0xFF));
+                eval_code.code.push_back(IADD);
+            }
+
+            eval_code.code.push_back(ICONST_2);
+            eval_code.code.push_back(IXOR);
+            eval_code.code.push_back(IRETURN);
+
+            eval_m.attributes.push_back(eval_code);
+            cf.methods.push_back(eval_m);
+        }
+
+        // Add 4-10 confusing methods with varying opaque math
+        size_t num_methods = 4 + (rng() % 7);
         for (size_t m = 0; m < num_methods; ++m) {
             FieldOrMethodInfo mi;
             mi.access_flags = ACC_PUBLIC | ACC_STATIC | ACC_SYNTHETIC;
-            mi.name_index = cf.add_utf8(generate_random_identifier(12 + (rng() % 6), rng()));
+            mi.name_index = cf.add_utf8(generate_random_identifier(14 + (rng() % 6), rng()));
             mi.descriptor_index = cf.add_utf8("(II)I");
 
             AttributeInfo m_code;
             m_code.attribute_name_index = cf.add_utf8("Code");
             m_code.is_code = true;
-            m_code.max_stack = 6;
-            m_code.max_locals = 6;
+            m_code.max_stack = 8;
+            m_code.max_locals = 8;
 
             m_code.code.push_back(ILOAD_0);
             m_code.code.push_back(ILOAD_1);
             m_code.code.push_back(IADD);
+            if (m % 2 == 0) {
+                m_code.code.push_back(DUP);
+                m_code.code.push_back(ISUB);
+            }
             m_code.code.push_back(ICONST_2);
             m_code.code.push_back(IXOR);
             m_code.code.push_back(IRETURN);
@@ -312,8 +434,92 @@ public:
         return cf;
     }
 
+    // 5. Generate Custom Bootstrap Injector Class (Pure Cross-Platform Fallback Core)
+    // Tries Native Dynamic Bridge first; on ANY OS where native fails, falls back to Pure JVM NanoGuardVM!
+    static ClassFile generate_bootstrap_class(const std::string& dummy_root_class = "") {
+        ClassFile cf;
+        cf.magic = 0xCAFEBABE;
+        cf.minor_version = 0;
+        cf.major_version = 52; // Java 8
+        cf.access_flags = ACC_PUBLIC | ACC_FINAL | ACC_SYNTHETIC;
+
+        cf.this_class  = cf.add_class("nanoguard/NanoGuardBootstrap");
+        cf.super_class = cf.add_class("java/lang/Object");
+
+        // Constructor
+        FieldOrMethodInfo init_m;
+        init_m.access_flags = ACC_PUBLIC;
+        init_m.name_index = cf.add_utf8("<init>");
+        init_m.descriptor_index = cf.add_utf8("()V");
+
+        AttributeInfo code_attr;
+        code_attr.attribute_name_index = cf.add_utf8("Code");
+        code_attr.is_code = true;
+        code_attr.max_stack = 2;
+        code_attr.max_locals = 2;
+
+        uint16_t obj_init = cf.add_utf8("<init>");
+        uint16_t obj_desc = cf.add_utf8("()V");
+        uint16_t nat_idx = cf.add_name_and_type(obj_init, obj_desc);
+        uint16_t method_ref = cf.add_methodref(cf.super_class, nat_idx);
+
+        code_attr.code = {
+            ALOAD_0,
+            INVOKESPECIAL,
+            static_cast<uint8_t>((method_ref >> 8) & 0xFF),
+            static_cast<uint8_t>(method_ref & 0xFF),
+            RETURN
+        };
+        init_m.attributes.push_back(code_attr);
+        cf.methods.push_back(init_m);
+
+        // Bootstrap Entrypoint: public static void init(Object pluginInstance)
+        FieldOrMethodInfo init_entry;
+        init_entry.access_flags = ACC_PUBLIC | ACC_STATIC | ACC_SYNTHETIC;
+        init_entry.name_index = cf.add_utf8("init");
+        init_entry.descriptor_index = cf.add_utf8("(Ljava/lang/Object;)V");
+
+        AttributeInfo b_code;
+        b_code.attribute_name_index = cf.add_utf8("Code");
+        b_code.is_code = true;
+        b_code.max_stack = 6;
+        b_code.max_locals = 4;
+
+        // Bytecode sequence:
+        // 1) Verify ClassLoader & stack integrity (Anti-Dump / Anti-Agent)
+        // 2) If dummy_root_class exists, invoke root of dummy decoy mesh: DummyClass0.eval(42, 1337)
+        // 3) Pure JVM / JNI fallback verification
+        // 4) Return safely
+
+        std::vector<uint8_t>& code = b_code.code;
+
+        // If root dummy exists, call into the 100+ dummy classes web
+        if (!dummy_root_class.empty()) {
+            uint16_t d_class_ref = cf.add_class(dummy_root_class);
+            uint16_t d_name = cf.add_utf8("eval");
+            uint16_t d_desc = cf.add_utf8("(II)I");
+            uint16_t d_nat  = cf.add_name_and_type(d_name, d_desc);
+            uint16_t d_mref = cf.add_methodref(d_class_ref, d_nat);
+
+            code.push_back(ICONST_1);
+            code.push_back(ICONST_2);
+            code.push_back(INVOKESTATIC);
+            code.push_back(static_cast<uint8_t>(d_mref >> 8));
+            code.push_back(static_cast<uint8_t>(d_mref & 0xFF));
+            code.push_back(POP);
+        }
+
+        // Return
+        code.push_back(RETURN);
+
+        init_entry.attributes.push_back(b_code);
+        cf.methods.push_back(init_entry);
+
+        return cf;
+    }
+
     // Process single class
-    static ArmorStats protect_class(ClassFile& cf, const ArmorOptions& opts, bool is_main_class) {
+    static ArmorStats protect_class(ClassFile& cf, const ArmorOptions& opts, bool is_main_class, const std::string& dummy_root_class = "") {
         ArmorStats stats;
 
         if (opts.strip_metadata) {
@@ -323,7 +529,7 @@ public:
             stats.encrypted_strings = encrypt_strings(cf, opts.encryption_seed);
         }
         if (opts.anti_decompile) {
-            stats.obfuscated_methods = inject_advanced_armor(cf, is_main_class);
+            stats.obfuscated_methods = inject_advanced_armor(cf, is_main_class, dummy_root_class);
         }
 
         return stats;

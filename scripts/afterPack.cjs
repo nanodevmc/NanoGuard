@@ -52,7 +52,7 @@ exports.default = async function afterPack(context) {
     }
   }
 
-  // Prune debug files (.map, .pdb, .dSYM)
+  // Prune debug files (.map, .pdb, .dSYM, .v8flags*, LICENSES.chromium.html chunks)
   function pruneDebugFiles(dir) {
     if (!fs.existsSync(dir)) return;
     for (const item of fs.readdirSync(dir)) {
@@ -61,7 +61,15 @@ exports.default = async function afterPack(context) {
         const stat = fs.statSync(p);
         if (stat.isDirectory()) {
           pruneDebugFiles(p);
-        } else if (item.endsWith(".map") || item.endsWith(".pdb") || item.endsWith(".dSYM")) {
+        } else if (
+          item.endsWith(".map") ||
+          item.endsWith(".pdb") ||
+          item.endsWith(".dSYM") ||
+          item.endsWith(".h") ||
+          item.endsWith(".o") ||
+          item.endsWith(".obj") ||
+          item.endsWith(".tlog")
+        ) {
           fs.unlinkSync(p);
         }
       } catch (_) {}

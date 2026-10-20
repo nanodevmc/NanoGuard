@@ -31,21 +31,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(5, 12, 16, 0.88)',
+        backgroundColor: 'rgba(0, 0, 0, 0.75)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 100,
-        backdropFilter: 'blur(5px)',
+        backdropFilter: 'blur(6px)',
       }}
     >
       <div
         style={{
-          width: '560px',
-          backgroundColor: '#0a151d',
-          border: '1px solid #1a3644',
-          boxShadow: '0 0 25px rgba(0, 229, 255, 0.2)',
-          borderRadius: '6px',
+          width: '540px',
+          backgroundColor: '#0c100d',
+          border: '1px solid #1f2721',
+          boxShadow: '0 0 30px rgba(0, 0, 0, 0.6)',
+          borderRadius: '8px',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
@@ -58,14 +58,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             justifyContent: 'space-between',
             alignItems: 'center',
             padding: '12px 18px',
-            backgroundColor: '#070f14',
-            borderBottom: '1px solid #1a3644',
+            backgroundColor: '#070a08',
+            borderBottom: '1px solid #1f2721',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '15px' }}>⚙️</span>
-            <span style={{ color: '#00e5ff', fontWeight: 800, fontSize: '13px', letterSpacing: '0.05em' }}>
-              НАСТРОЙКИ NANOGUARD
+            <span style={{ fontSize: '14px' }}>⚙</span>
+            <span style={{ color: '#eaf0ea', fontWeight: 800, fontSize: '13px', fontFamily: 'JetBrains Mono, monospace' }}>
+              SETTINGS // NANOGUARD CORE
             </span>
           </div>
           <button
@@ -73,9 +73,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             style={{
               background: 'none',
               border: 'none',
-              color: '#88a0b0',
+              color: '#9aa69e',
               cursor: 'pointer',
-              fontSize: '16px',
+              fontSize: '15px',
               padding: '0 4px',
             }}
           >
@@ -87,25 +87,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Engine Selector */}
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: '#e0f2f1', marginBottom: '6px' }}>
-              ДВИЖОК СТАТИЧЕСКОГО АНАЛИЗА
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#9aa69e', fontFamily: 'JetBrains Mono, monospace', marginBottom: '8px' }}>
+              STATIC AUDIT ENGINE
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <div
                 onClick={() => setEngine('cpp')}
                 style={{
                   padding: '10px',
-                  backgroundColor: engine === 'cpp' ? '#142a36' : '#0d1c24',
-                  border: engine === 'cpp' ? '1px solid #00e5ff' : '1px solid #1a3644',
-                  borderRadius: '4px',
+                  backgroundColor: engine === 'cpp' ? '#131814' : '#070a08',
+                  border: engine === 'cpp' ? '1px solid #9bf246' : '1px solid #1f2721',
+                  borderRadius: '6px',
                   cursor: 'pointer',
                 }}
               >
-                <div style={{ fontSize: '12px', fontWeight: 700, color: engine === 'cpp' ? '#00e5ff' : '#cfd8dc' }}>
-                  C++17 Streaming Parser
+                <div style={{ fontSize: '12px', fontWeight: 700, color: engine === 'cpp' ? '#9bf246' : '#eaf0ea', fontFamily: 'JetBrains Mono, monospace' }}>
+                  C++17 Native Engine
                 </div>
-                <div style={{ fontSize: '10px', color: '#78909c', marginTop: '2px' }}>
-                  Потоковый разбор опкодов и построение CFG
+                <div style={{ fontSize: '10px', color: '#5f6b62', marginTop: '4px', fontFamily: 'JetBrains Mono, monospace' }}>
+                  Точный байткод-парсер, Constant Pool эвристика, декомпилятор инструкций
                 </div>
               </div>
 
@@ -113,68 +113,72 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onClick={() => setEngine('rust')}
                 style={{
                   padding: '10px',
-                  backgroundColor: engine === 'rust' ? '#142a36' : '#0d1c24',
-                  border: engine === 'rust' ? '1px solid #00e676' : '1px solid #1a3644',
-                  borderRadius: '4px',
+                  backgroundColor: engine === 'rust' ? '#131814' : '#070a08',
+                  border: engine === 'rust' ? '1px solid #9bf246' : '1px solid #1f2721',
+                  borderRadius: '6px',
                   cursor: 'pointer',
                 }}
               >
-                <div style={{ fontSize: '12px', fontWeight: 700, color: engine === 'rust' ? '#00e676' : '#cfd8dc' }}>
-                  Rust FastScan Core
+                <div style={{ fontSize: '12px', fontWeight: 700, color: engine === 'rust' ? '#9bf246' : '#eaf0ea', fontFamily: 'JetBrains Mono, monospace' }}>
+                  Rust FastScan Engine
                 </div>
-                <div style={{ fontSize: '10px', color: '#78909c', marginTop: '2px' }}>
-                  Параллельный сканер Rayon + энтропия Шеннона
+                <div style={{ fontSize: '10px', color: '#5f6b62', marginTop: '4px', fontFamily: 'JetBrains Mono, monospace' }}>
+                  Многопоточный Rayon сканер, zero-copy ZIP, YARA сигнатуры
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Threads */}
+          {/* Threads Slider */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: '#e0f2f1' }}>ПОТОКИ СКАНИРОВАНИЯ (RAYON WORKERS)</span>
-              <span style={{ fontSize: '12px', color: '#00e5ff', fontFamily: 'JetBrains Mono, monospace' }}>{threads}</span>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#9aa69e', fontFamily: 'JetBrains Mono, monospace' }}>
+                THREADS
+              </span>
+              <span style={{ fontSize: '11px', color: '#9bf246', fontFamily: 'JetBrains Mono, monospace' }}>{threads}</span>
             </div>
             <input
               type="range"
-              min={1}
-              max={8}
+              min="1"
+              max="16"
               value={threads}
-              onChange={(e) => setThreads(Number(e.target.value))}
-              style={{ width: '100%', accentColor: '#00e5ff' }}
+              onChange={(e) => setThreads(parseInt(e.target.value, 10))}
+              style={{ width: '100%', accentColor: '#9bf246' }}
             />
           </div>
 
-          {/* Auto open toggle */}
-          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+          {/* Auto open in Explorer */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
             <input
               type="checkbox"
               checked={autoOpen}
               onChange={(e) => setAutoOpen(e.target.checked)}
-              style={{ accentColor: '#00e676' }}
+              style={{ accentColor: '#9bf246' }}
             />
-            <span style={{ fontSize: '12px', color: '#cfd8dc' }}>
-              Автоматически открывать папку в проводнике после защиты плагина
+            <span style={{ fontSize: '12px', color: '#eaf0ea', fontFamily: 'JetBrains Mono, monospace' }}>
+              Автоматически открывать проводник после защиты
             </span>
           </label>
 
-          {/* About section */}
+          {/* About / Info */}
           <div
             style={{
-              marginTop: '6px',
               padding: '12px',
-              backgroundColor: '#070f14',
-              borderRadius: '4px',
-              border: '1px solid #1a3644',
+              backgroundColor: '#131814',
+              borderRadius: '6px',
+              border: '1px solid #1f2721',
               fontSize: '11px',
-              color: '#78909c',
+              fontFamily: 'JetBrains Mono, monospace',
+              color: '#9aa69e',
               lineHeight: '1.6',
             }}
           >
-            <div><strong style={{ color: '#e0f2f1' }}>NanoGuard v0.1.0</strong> — Native Bytecode Armor & Backdoor Hunter.</div>
-            <div>Брат-близнец NanoDecompiler для Spigot, Paper и Velocity серверов.</div>
-            <div style={{ marginTop: '4px' }}>
-              Разработчик: <a href="https://t.me/WineSquad" target="_blank" rel="noreferrer" style={{ color: '#00e5ff', textDecoration: 'none' }}>NanoDev (t.me/WineSquad)</a>
+            <div>Версия: <span style={{ color: '#9bf246' }}>v0.1.2</span></div>
+            <div>
+              Разработчик: <a href="https://t.me/WineSquad" target="_blank" rel="noreferrer" style={{ color: '#9bf246', textDecoration: 'none' }}>NanoDev (t.me/WineSquad)</a>
+            </div>
+            <div style={{ color: '#5f6b62', fontSize: '10px', marginTop: '4px' }}>
+              100% Offline // Нулевая телеметрия // Локальная обработка
             </div>
           </div>
         </div>
@@ -182,27 +186,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Footer */}
         <div
           style={{
+            padding: '12px 18px',
+            backgroundColor: '#070a08',
+            borderTop: '1px solid #1f2721',
             display: 'flex',
             justifyContent: 'flex-end',
-            padding: '12px 18px',
-            backgroundColor: '#070f14',
-            borderTop: '1px solid #1a3644',
           }}
         >
           <button
             onClick={onClose}
             style={{
-              padding: '6px 18px',
-              backgroundColor: '#00e5ff',
+              padding: '6px 16px',
+              backgroundColor: '#9bf246',
+              color: '#070a08',
               border: 'none',
-              color: '#070f14',
               borderRadius: '4px',
-              cursor: 'pointer',
               fontWeight: 800,
               fontSize: '11px',
+              fontFamily: 'JetBrains Mono, monospace',
+              cursor: 'pointer',
             }}
           >
-            СОХРАНИТЬ
+            ЗАКРЫТЬ
           </button>
         </div>
       </div>

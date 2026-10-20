@@ -1,6 +1,6 @@
 {
   "name": "nanoguard",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Native Bytecode Armor & Backdoor Hunter for Minecraft & Java Plugins",
   "main": "dist/electron/main.js",
   "scripts": {
@@ -36,10 +36,12 @@
     ],
     "win": {
       "target": "portable",
+      "icon": "build/icon.ico",
       "artifactName": "${productName}-${version}-Windows-Portable.${ext}"
     },
     "linux": {
       "target": "AppImage",
+      "icon": "build/icon.png",
       "category": "Development",
       "artifactName": "${productName}-${version}-Linux.${ext}"
     },
@@ -48,23 +50,25 @@
         "dmg",
         "zip"
       ],
+      "icon": "build/icon.png",
       "category": "public.app-category.developer-tools",
       "artifactName": "${productName}-${version}-macOS.${ext}"
     }
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "@vitejs/plugin-react": "^4.2.1",
     "electron": "^28.2.0",
     "electron-builder": "^24.9.1",
-    "playwright": "^1.41.2",
-    "typescript": "^5.3.3",
-    "vite": "^5.1.0",
-    "@vitejs/plugin-react": "^4.2.1",
+    "playwright": "^1.41.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "@types/react": "^18.2.55",
-    "@types/react-dom": "^18.2.19"
-  },
-  "dependencies": {
-    "lucide-react": "^0.323.0"
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.12",
+    "vite-plugin-electron": "^0.28.0"
   }
 }

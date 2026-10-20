@@ -78,11 +78,7 @@ public:
             return false;
         }
 
-        bool has_nanoguard_inf = false;
-
         for (const auto& entry : entries) {
-            if (entry.filename == "META-INF/NANOGUARD.INF") has_nanoguard_inf = true;
-
             if (entry.is_directory || entry.data.empty()) {
                 std::string dirname = entry.filename;
                 if (!dirname.empty() && dirname.back() != '/') dirname += '/';
@@ -90,19 +86,6 @@ public:
             } else {
                 mz_zip_writer_add_mem(&zip_out, entry.filename.c_str(), entry.data.data(), entry.data.size(), MZ_DEFAULT_COMPRESSION);
             }
-        }
-
-        // Add single NanoGuard marker file inside the protected JAR
-        if (!has_nanoguard_inf) {
-            std::string inf_content = 
-                "Manifest-Version: 1.0\n"
-                "Protected-By: NanoGuard Native Bytecode Armor & Backdoor Hunter v0.1.0\n"
-                "Author: NanoDev (t.me/WineSquad)\n"
-                "Website: https://github.com/NanoDev1488/NanoGuard\n"
-                "Contact: t.me/radoqi\n"
-                "Armor-Protection: Native-Level-3\n"
-                "Status: SECURED\n";
-            mz_zip_writer_add_mem(&zip_out, "META-INF/NANOGUARD.INF", inf_content.data(), inf_content.size(), MZ_DEFAULT_COMPRESSION);
         }
 
         if (!mz_zip_writer_finalize_archive(&zip_out)) {

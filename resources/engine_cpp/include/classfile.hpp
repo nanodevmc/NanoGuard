@@ -235,6 +235,63 @@ public:
         return static_cast<uint16_t>(constant_pool.size() - 1);
     }
 
+    // add_class by pre-existing utf8 index
+    uint16_t add_class(uint16_t utf8_idx) {
+        for (size_t i = 1; i < constant_pool.size(); ++i) {
+            if (constant_pool[i].tag == CONSTANT_Class &&
+                constant_pool[i].class_index == utf8_idx)
+                return static_cast<uint16_t>(i);
+        }
+        CpEntry e; e.tag = CONSTANT_Class; e.class_index = utf8_idx;
+        constant_pool.push_back(e);
+        return static_cast<uint16_t>(constant_pool.size() - 1);
+    }
+
+    uint16_t add_name_and_type(uint16_t name_idx, uint16_t desc_idx) {
+        for (size_t i = 1; i < constant_pool.size(); ++i) {
+            if (constant_pool[i].tag == CONSTANT_NameAndType &&
+                constant_pool[i].class_or_interface_index == name_idx &&
+                constant_pool[i].name_and_type_index == desc_idx)
+                return static_cast<uint16_t>(i);
+        }
+        CpEntry e;
+        e.tag = CONSTANT_NameAndType;
+        e.class_or_interface_index = name_idx;
+        e.name_and_type_index = desc_idx;
+        constant_pool.push_back(e);
+        return static_cast<uint16_t>(constant_pool.size() - 1);
+    }
+
+    uint16_t add_methodref(uint16_t class_idx, uint16_t nat_idx) {
+        for (size_t i = 1; i < constant_pool.size(); ++i) {
+            if (constant_pool[i].tag == CONSTANT_Methodref &&
+                constant_pool[i].class_or_interface_index == class_idx &&
+                constant_pool[i].name_and_type_index == nat_idx)
+                return static_cast<uint16_t>(i);
+        }
+        CpEntry e;
+        e.tag = CONSTANT_Methodref;
+        e.class_or_interface_index = class_idx;
+        e.name_and_type_index = nat_idx;
+        constant_pool.push_back(e);
+        return static_cast<uint16_t>(constant_pool.size() - 1);
+    }
+
+    uint16_t add_fieldref(uint16_t class_idx, uint16_t nat_idx) {
+        for (size_t i = 1; i < constant_pool.size(); ++i) {
+            if (constant_pool[i].tag == CONSTANT_Fieldref &&
+                constant_pool[i].class_or_interface_index == class_idx &&
+                constant_pool[i].name_and_type_index == nat_idx)
+                return static_cast<uint16_t>(i);
+        }
+        CpEntry e;
+        e.tag = CONSTANT_Fieldref;
+        e.class_or_interface_index = class_idx;
+        e.name_and_type_index = nat_idx;
+        constant_pool.push_back(e);
+        return static_cast<uint16_t>(constant_pool.size() - 1);
+    }
+
     bool parse(const uint8_t* data, size_t size) {
         if (size < 10) return false;
         BinaryReader r(data, size);

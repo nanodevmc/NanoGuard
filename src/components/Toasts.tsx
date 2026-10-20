@@ -18,13 +18,13 @@ export const Toasts: React.FC<ToastsProps> = ({ toasts, onDismiss }) => {
   const getTypeStyle = (type: string) => {
     switch (type) {
       case 'success':
-        return { border: '#00e676', color: '#00e676', icon: '✓' };
+        return { border: '#9bf246', color: '#9bf246', icon: '✓' };
       case 'error':
-        return { border: '#ff1744', color: '#ff1744', icon: '✕' };
+        return { border: '#ff6f61', color: '#ff6f61', icon: '✕' };
       case 'warning':
-        return { border: '#ffab00', color: '#ffab00', icon: '⚠' };
+        return { border: '#ffb224', color: '#ffb224', icon: '⚠' };
       default:
-        return { border: '#00e5ff', color: '#00e5ff', icon: 'ℹ' };
+        return { border: '#9bf246', color: '#9bf246', icon: 'ℹ' };
     }
   };
 
@@ -47,11 +47,11 @@ export const Toasts: React.FC<ToastsProps> = ({ toasts, onDismiss }) => {
             key={t.id}
             onClick={() => onDismiss(t.id)}
             style={{
-              backgroundColor: '#0a151d',
-              border: `1px solid ${style.border}`,
-              borderLeft: `4px solid ${style.border}`,
-              boxShadow: `0 4px 16px rgba(0,0,0,0.5)`,
-              borderRadius: '4px',
+              backgroundColor: '#0c100d',
+              border: `1px solid #1f2721`,
+              borderLeft: `3px solid ${style.border}`,
+              boxShadow: `0 4px 20px rgba(0,0,0,0.6)`,
+              borderRadius: '6px',
               padding: '10px 14px',
               minWidth: '260px',
               maxWidth: '380px',
@@ -59,13 +59,13 @@ export const Toasts: React.FC<ToastsProps> = ({ toasts, onDismiss }) => {
               display: 'flex',
               alignItems: 'flex-start',
               gap: '10px',
-              animation: 'fadeIn 0.2s ease',
+              fontFamily: 'JetBrains Mono, monospace',
             }}
           >
-            <span style={{ color: style.color, fontWeight: 800, fontSize: '14px' }}>{style.icon}</span>
+            <span style={{ color: style.color, fontWeight: 800, fontSize: '13px' }}>{style.icon}</span>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '12px', fontWeight: 700, color: '#e0f2f1' }}>{t.title}</div>
-              <div style={{ fontSize: '11px', color: '#90a4ae', marginTop: '2px' }}>{t.message}</div>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#eaf0ea' }}>{t.title}</div>
+              <div style={{ fontSize: '11px', color: '#9aa69e', marginTop: '2px' }}>{t.message}</div>
             </div>
           </div>
         );
