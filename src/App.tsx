@@ -5,6 +5,8 @@ import { AuditView, AuditReport, Finding } from './components/AuditView';
 import { ArmorView } from './components/ArmorView';
 import { ConsoleView } from './components/ConsoleView';
 import { CallGraphModal } from './components/CallGraphModal';
+import { BytecodeViewerModal } from './components/BytecodeViewerModal';
+import { BatchScannerModal } from './components/BatchScannerModal';
 import { SettingsModal } from './components/SettingsModal';
 import { StatusBar } from './components/StatusBar';
 import { Toasts, ToastMessage } from './components/Toasts';
@@ -22,7 +24,9 @@ export const App: React.FC = () => {
   const [auditReport, setAuditReport] = useState<AuditReport | null>(null);
   const [rawLog, setRawLog] = useState<string>('');
   const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
+  const [disasmFinding, setDisasmFinding] = useState<Finding | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [batchOpen, setBatchOpen] = useState(false);
   const [engine, setEngine] = useState<'cpp' | 'rust'>('cpp');
   const [threads, setThreads] = useState(4);
   const [autoOpen, setAutoOpen] = useState(true);
@@ -231,6 +235,8 @@ export const App: React.FC = () => {
             report={auditReport}
             rawLog={rawLog}
             onOpenCallGraph={(f) => setSelectedFinding(f)}
+            onOpenDisasm={(f) => setDisasmFinding(f)}
+            onOpenBatchScanner={() => setBatchOpen(true)}
           />
         )}
 
@@ -256,9 +262,20 @@ export const App: React.FC = () => {
       />
 
       {/* 5. Modals & Notifications */}
+      <BytecodeViewerModal finding={disasmFinding} onClose={() => setDisasmFinding(null)} />
+
       <CallGraphModal
         finding={selectedFinding}
         onClose={() => setSelectedFinding(null)}
+      />
+
+      <BatchScannerModal
+        isOpen={batchOpen}
+        onClose={() => setBatchOpen(false)}
+        onScanSingle={async (path) => {
+          // @ts-ignore
+          return await window.nanoGuardAPI.auditJar(path, engine);
+        }}
       />
 
       <SettingsModal

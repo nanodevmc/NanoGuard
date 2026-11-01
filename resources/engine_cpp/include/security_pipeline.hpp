@@ -73,6 +73,7 @@ namespace sha256_core {
                 uint32_t ch    = (e&f)^(~e&g);
                 uint32_t temp1 = hh+S1+ch+K[j]+w[j];
                 uint32_t S0    = rotr(a,2)^rotr(a,13)^rotr(a,22);
+                uint32_t maj   = (a&b)^(a&c)^(b&c);
                 uint32_t temp2 = S0+maj;
                 hh=g; g=f; f=e; e=d+temp1;
                 d=c;  c=b; b=a; a=temp1+temp2;

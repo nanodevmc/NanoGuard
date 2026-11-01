@@ -278,10 +278,11 @@ rule Runtime_Exec_RCE {
         author = "NanoDev"
     strings:
         $b1 = { B8 00 ?? B6 00 ?? }
-        $s1 = "Runtime"
-        $s2 = "exec"
+        $s1 = "java/lang/Runtime"
+        $s2 = "getRuntime"
+        $s3 = "exec"
     condition:
-        $s1 and $s2
+        $s1 and $s2 and $s3
 }
 
 rule Discord_Token_Exfil {
@@ -329,13 +330,13 @@ rule Fractureiser_IOC {
 rule Allatori_Obfuscator {
     meta:
         description = "Allatori obfuscator fingerprint"
-        severity = MEDIUM
+        severity = LOW
         author = "NanoDev"
     strings:
-        $s1 = "Allatori"
-        $b1 = { CA }
+        $s1 = "ALLATORI_DEMO"
+        $s2 = "Allatori Obfuscator"
     condition:
-        $s1 or $b1
+        $s1 or $s2
 }
 
 rule Zelix_KlassMaster {

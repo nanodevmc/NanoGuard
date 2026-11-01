@@ -1,28 +1,25 @@
 # NanoGuard - Project State
 
-- **Версия**: 0.1.2 (Экстремальная защита & Редизайн в стиле NanoDecompiler)
+- **Версия**: 0.1.2 (Экстремальная защита, Native AOT .DLL, Package Flattening & Decompiler Crashers)
 - **Архитектура**:
-  - Native C++17 Core Engine (`resources/engine_cpp`): Backdoor Hunter с инспекцией архивов (поиск скрытых `.aeg` блобов и поддельных маркеров), Bytecode Armor с генерацией 100+ связанных мусорных классов (decoy mesh), кастомным Bootstrap-инжектором и гибридной связкой Java <-> Native (dynamic `RegisterNatives` в `JNI_OnLoad` + Pure JVM VM fallback для поддержки всех ОС).
-  - Rust FastScan Core (`crates/nanoguard-fastscan`): параллельный сканер с Rayon, memmap2, zip 9.0.5, энтропией Шеннона и YARA-сигнатурами.
-  - GUI (`electron`, `src`): тотальный редизайн под темную терминальную эстетику NanoDecompiler (`#070a08`, `#0c100d`, `#1f2721`, `#9bf246` кислотный зеленый, шрифты `Inter` и `JetBrains Mono`).
-  - Electron Task Manager: подмена иконки через `app.setAppUserModelId` и `nativeImage` (`build/icon.ico`, `build/icon.png`).
-  - CI/CD (`.github/workflows/build-and-release.yml`): мультиплатформенная матрица сборки и релиза v0.1.2.
+  - Native C++17 Core Engine (`resources/engine_cpp`): Backdoor Hunter с контекстной фильтрацией рефлексий и ложных срабатываний; Bytecode Armor с Package Flattening (корень архива без папок пакетов), генерацией 100+ связанных мусорных decoy-классов, Decompiler Crashers (рекурсивные дженерик-сигнатуры и циклические InnerClasses) и AOT-транслятором в x86_64 машинный код (`nanoguard_bridge.dll` через MSVC cl.exe с аппаратным Win32 Anti-Debug).
+  - Rust FastScan Core (`crates/nanoguard-fastscan`): параллельный сканер с Rayon, memmap2, откалиброванными правилами YARA и изоляцией затененных библиотек (HikariCP, SnakeYAML, Gson).
+  - GUI (`electron`, `src`): темная терминальная эстетика NanoDecompiler (`#070a08`, `#0c100d`, `#1f2721`, `#9bf246`), интерактивные переключатели всех 8 систем защиты, подмена иконки в Windows Taskbar.
+  - Локальная сборка: готовые установщики (`Setup.exe` и `Portable.exe`), аватар и иконки PIL на Рабочем столе.
 - **Окружение**: Windows 10, Intel Pentium P4600, 4 GB RAM.
 - **Правила разработки**:
   - Только `cmd.exe /c`, PowerShell категорически запрещен.
-  - Сборка тяжелых бинарников через GitHub Actions, чтобы не нагружать слабый ПК.
   - Секреты и токены никогда не сохраняются в файлах репозитория.
+  - Без push в git (аккаунт временно заблокирован), все компиляции локальные.
 
-## Реализовано в v0.1.2
-1. **5 Уровней защиты байткода**:
-   - 1: Отказ от статичных маркеров в корне (проверка структуры без единого `NANOGUARD.INF`).
-   - 2: Полиморфные динамические контрольные суммы на адресах вызовов (`compute_callsite_hash`).
-   - 3: Встраивание маркеров целостности в Constant Pool каждого класса (скрытые синтетические атрибуты).
-   - 4: Криптографическая связка Java <-> Native (рандомизированный `RegisterNatives` с зачисткой памяти) + Pure JVM VM фоллбэк для 100% работы на любых ОС.
-   - 5: Антидамп и контроль ClassLoader (проверка стека вызовов, блокировка JavaAgent / ByteBuddy).
-2. **Экстремальная обфускация**:
-   - Генерация 100+ связанных мусорных decoy-классов с непрозрачными предикатами.
-   - Кастомный Bootstrap-инжектор (`NanoGuardBootstrap.class`), перехватывающий точку входа (`onEnable`).
-3. **Редизайн GUI в стиле NanoDecompiler**:
-   - Терминальный интерфейс (`#070a08` фон, `#9bf246` акценты, сетка и моноширинные бейджи).
-   - Корректная иконка в Диспетчере задач Windows и таскбаре.
+## Реализовано и проверено:
+1. **Точный аудит без ложных срабатываний**:
+   - `NeoBuyer.jar`, `GlowCases.jar`, `NanoMarket.jar`, `NanoForge.jar` показывают 0-15/100 (CLEAN).
+2. **Package Flattening (Все классы в корень)**:
+   - Полное удаление структуры каталогов пакетов, перенос всех классов в корень с рандомизацией имен и патчингом дескрипторов.
+3. **Native AOT .DLL Transpiler**:
+   - Компиляция `nanoguard_bridge.dll` в x86_64 Machine Code с защитой `IsDebuggerPresent`.
+4. **Decompiler Crashers**:
+   - Зацикленные дженерики и рекурсивные InnerClasses, вызывающие StackOverflow в CFR, Procyon, Fernflower, Recaf.
+5. **Инсталлеры на Рабочем столе**:
+   - `NanoGuard-0.1.2-Windows-Setup.exe` (~69.7 МБ) и `NanoGuard-0.1.2-Windows-Portable.exe` (~69.4 МБ).

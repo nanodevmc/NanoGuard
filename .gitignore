@@ -29,3 +29,23 @@ Cargo.lock
 # Python
 __pycache__/
 *.py[cod]
+dist-release/
+nanoguard_bridge.dll
+nanoguard_bridge.so
+nanoguard_bridge_temp.cpp
+test_input.jar
+test_input_protected.jar
+test_vuln.jar
+test_jars/*.jar
+test_jars/*.dll
+*.obj
+resources/engine_cpp/nanoguard.exe
+resources/engine_cpp/build/
+src-tauri/target/
+resources/engine/*.exe
+resources/engine/*.dll
+resources/engine/*.so
+resources/engine/*.obj
+resources/engine/*.lib
+resources/engine/*.exp
+resources/engine/nanoguard_bridge_temp.cpp

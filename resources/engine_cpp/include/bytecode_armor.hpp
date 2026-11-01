@@ -1,6 +1,7 @@
 #pragma once
 #include "classfile.hpp"
 #include "opcodes.hpp"
+#include "zip_handler.hpp"
 #include <string>
 #include <vector>
 #include <random>
@@ -69,6 +70,11 @@ public:
             s.push_back(alphabet[dist(rng)]);
         }
         return s;
+    }
+
+    static std::string generate_random_identifier(size_t length, uint32_t seed_val = 0) {
+        std::mt19937 rng(seed_val != 0 ? seed_val : 1337);
+        return generate_random_identifier(length, rng);
     }
 
     // 1. Strip Metadata & Debug Symbols
@@ -149,6 +155,29 @@ public:
         };
         cf.attributes.push_back(ng_attr);
 
+        // Decompiler Crashers (CFR, Fernflower, Procyon, Recaf Crash Loop)
+        // HotSpot ignores synthetic attributes with complex recursive generic syntax, but decompilers loop and crash
+        uint16_t sig_attr_name = cf.add_utf8("Signature");
+        uint16_t sig_str_idx = cf.add_utf8("<T:Ljava/lang/Object;U::TT;>Ljava/lang/Object;");
+        AttributeInfo sig_attr;
+        sig_attr.attribute_name_index = sig_attr_name;
+        sig_attr.info = { static_cast<uint8_t>(sig_str_idx >> 8), static_cast<uint8_t>(sig_str_idx & 0xFF) };
+        cf.attributes.push_back(sig_attr);
+
+        // Malformed InnerClasses crash loop
+        uint16_t in_attr_name = cf.add_utf8("InnerClasses");
+        AttributeInfo in_attr;
+        in_attr.attribute_name_index = in_attr_name;
+        // count = 1, inner = this_class, outer = this_class, name = 0, flags = ACC_PUBLIC
+        in_attr.info = {
+            0x00, 0x01,
+            static_cast<uint8_t>(cf.this_class >> 8), static_cast<uint8_t>(cf.this_class & 0xFF),
+            static_cast<uint8_t>(cf.this_class >> 8), static_cast<uint8_t>(cf.this_class & 0xFF),
+            0x00, 0x00,
+            0x00, 0x01
+        };
+        cf.attributes.push_back(in_attr);
+
         // Add 5-12 synthetic dummy decoy fields with confusing names (o0O1...)
         std::mt19937 rng(1337 + cf.this_class);
         size_t dummy_fields_count = 5 + (rng() % 8);
@@ -217,6 +246,35 @@ public:
                     traps += 2;
                     break;
                 }
+            }
+        }
+
+        // 2.7 Control Flow Flattening (Bogus Control Flow & Opaque Predicate Switch Dispatcher)
+        // Wraps method bodies with opaque state machines to destroy CFG in CFR/Fernflower/Procyon
+        for (auto& m : cf.methods) {
+            std::string m_name = cf.get_utf8(m.name_index);
+            if (m_name == "<init>" || m_name == "<clinit>") continue;
+
+            for (auto& attr : m.attributes) {
+                if (!attr.is_code || attr.code.size() < 4) continue;
+                // Inject opaque state variable initialization + conditional branch trap at start
+                // if ((state * (state + 1)) % 2 != 0) { throw null; } // Always false mathematically
+                uint8_t rnd_seed = static_cast<uint8_t>(rng() % 200 + 10);
+                // Opaque predicate: (N ^ N) == 0 (Always true at runtime, but creates CFG split)
+                std::vector<uint8_t> flattened_prelude = {
+                    BIPUSH, rnd_seed,         // push N
+                    DUP,                     // dup N
+                    IXOR,                    // N ^ N = 0
+                    IFEQ, 0x00, 0x05,        // if == 0 jump over dead branch (+5 bytes)
+                    ACONST_NULL,
+                    ATHROW                   // Dead branch crashing decompiler CFG analysis
+                };
+
+                flattened_prelude.insert(flattened_prelude.end(), attr.code.begin(), attr.code.end());
+                attr.code = flattened_prelude;
+                if (attr.max_stack < 4) attr.max_stack = 4;
+                traps++;
+                break;
             }
         }
 
@@ -296,6 +354,129 @@ public:
         return count;
     }
 
+    // Flatten all classes directly into the root folder of the JAR (removes all package dirs)
+    static void flatten_and_repackage_to_root(
+        std::vector<JarEntry>& entries,
+        std::string& detected_main_class,
+        std::mt19937& rng
+    ) {
+        std::map<std::string, std::string> rename_map;
+
+        for (auto& entry : entries) {
+            if (!entry.is_class || entry.data.empty()) continue;
+            ClassFile cf;
+            if (cf.parse(entry.data.data(), entry.data.size())) {
+                std::string orig_name = cf.get_class_name(cf.this_class);
+                if (orig_name.rfind("nanoguard/", 0) == 0) continue;
+
+                std::string new_root_name = generate_random_identifier(18 + (rng() % 8), rng);
+                rename_map[orig_name] = new_root_name;
+
+                if (!detected_main_class.empty() && orig_name == detected_main_class) {
+                    detected_main_class = new_root_name;
+                }
+            }
+        }
+
+        if (rename_map.empty()) return;
+        // Method and Field Obfuscation dictionary across all internal classes
+        std::map<std::string, std::string> member_rename_map;
+        auto is_protected_method = [](const std::string& name) {
+            return name == "<init>" || name == "<clinit>" ||
+                   name == "onEnable" || name == "onDisable" || name == "onLoad" ||
+                   name == "onCommand" || name == "onTabComplete" ||
+                   name == "equals" || name == "hashCode" || name == "toString" ||
+                   name == "values" || name == "valueOf";
+        };
+
+        // First pass: collect internal method and field names to scramble
+        for (auto& entry : entries) {
+            if (!entry.is_class || entry.data.empty()) continue;
+            ClassFile cf;
+            if (!cf.parse(entry.data.data(), entry.data.size())) continue;
+            std::string cname = cf.get_class_name(cf.this_class);
+            if (cname.rfind("nanoguard/", 0) == 0) continue;
+
+            for (const auto& m : cf.methods) {
+                std::string m_name = cf.get_utf8(m.name_index);
+                if (!is_protected_method(m_name) && m_name.length() > 2) {
+                    if (member_rename_map.find(m_name) == member_rename_map.end()) {
+                        member_rename_map[m_name] = generate_random_identifier(12 + (rng() % 8), rng);
+                    }
+                }
+            }
+
+            for (const auto& fld : cf.fields) {
+                std::string f_name = cf.get_utf8(fld.name_index);
+                if (f_name.length() > 2 && member_rename_map.find(f_name) == member_rename_map.end()) {
+                    member_rename_map[f_name] = generate_random_identifier(12 + (rng() % 8), rng);
+                }
+            }
+        }
+
+
+        for (auto& entry : entries) {
+            if (!entry.is_class || entry.data.empty()) continue;
+            ClassFile cf;
+            if (!cf.parse(entry.data.data(), entry.data.size())) continue;
+
+            std::string orig_name = cf.get_class_name(cf.this_class);
+
+            for (size_t i = 1; i < cf.constant_pool.size(); ++i) {
+                if (cf.constant_pool[i].tag == CONSTANT_Utf8) {
+                    std::string& s = cf.constant_pool[i].utf8_val;
+                    
+                    auto it = rename_map.find(s);
+                    if (it != rename_map.end()) {
+                        s = it->second;
+                        continue;
+                    }
+
+                    auto mit = member_rename_map.find(s);
+                    if (mit != member_rename_map.end()) {
+                        s = mit->second;
+                        continue;
+                    }
+
+                    for (const auto& pair : rename_map) {
+                        std::string target_desc = "L" + pair.first + ";";
+                        std::string replace_desc = "L" + pair.second + ";";
+                        size_t pos = 0;
+                        while ((pos = s.find(target_desc, pos)) != std::string::npos) {
+                            s.replace(pos, target_desc.length(), replace_desc);
+                            pos += replace_desc.length();
+                        }
+                    }
+                }
+            }
+
+            auto it = rename_map.find(orig_name);
+            if (it != rename_map.end()) {
+                entry.filename = it->second + ".class";
+            }
+            entry.data = cf.serialize();
+            entry.uncompressed_size = static_cast<uint32_t>(entry.data.size());
+            entry.compressed_size = static_cast<uint32_t>(entry.data.size());
+        }
+
+        for (auto& entry : entries) {
+            if (entry.filename == "plugin.yml" && !entry.data.empty()) {
+                std::string yml(reinterpret_cast<const char*>(entry.data.data()), entry.data.size());
+                size_t pos = yml.find("main:");
+                if (pos != std::string::npos) {
+                    size_t end = yml.find_first_of("\r\n", pos);
+                    std::string before = yml.substr(0, pos + 5);
+                    std::string after = (end != std::string::npos) ? yml.substr(end) : "";
+                    std::string new_yml = before + " " + detected_main_class + after;
+                    entry.data.assign(new_yml.begin(), new_yml.end());
+                    entry.uncompressed_size = static_cast<uint32_t>(entry.data.size());
+                    entry.compressed_size = static_cast<uint32_t>(entry.data.size());
+                }
+                break;
+            }
+        }
+    }
+
     // 4. Generate Non-Uniform Random Dummy/Junk Class with Mesh Chaining
     static ClassFile generate_dummy_class(
         const std::string& package_prefix,
@@ -315,12 +496,17 @@ public:
         static const char* const sub_pkgs[] = {"internal", "util", "core", "runtime", "net", "helper", "loader", "impl"};
         std::string chosen_sub = sub_pkgs[rng() % (sizeof(sub_pkgs) / sizeof(sub_pkgs[0]))];
 
-        std::string class_name = package_prefix;
-        if (!class_name.empty() && class_name.back() != '/') class_name += '/';
-        if (index % 3 == 0) {
-            class_name += chosen_sub + "/";
+        std::string class_name;
+        if (package_prefix.empty()) {
+            class_name = generate_random_identifier(16 + (rng() % 8), rng);
+        } else {
+            class_name = package_prefix;
+            if (!class_name.empty() && class_name.back() != '/') class_name += '/';
+            if (index % 3 == 0) {
+                class_name += chosen_sub + "/";
+            }
+            class_name += generate_random_identifier(12 + (rng() % 8), rng);
         }
-        class_name += generate_random_identifier(12 + (rng() % 8), rng());
 
         cf.this_class = cf.add_class(class_name);
         cf.super_class = cf.add_class("java/lang/Object");

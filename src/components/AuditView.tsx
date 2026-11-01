@@ -31,6 +31,8 @@ interface AuditViewProps {
   report: AuditReport | null;
   rawLog: string;
   onOpenCallGraph: (finding: Finding) => void;
+  onOpenDisasm?: (finding: Finding) => void;
+  onOpenBatchScanner?: () => void;
 }
 
 export const AuditView: React.FC<AuditViewProps> = ({
@@ -42,6 +44,8 @@ export const AuditView: React.FC<AuditViewProps> = ({
   report,
   rawLog,
   onOpenCallGraph,
+  onOpenDisasm,
+  onOpenBatchScanner,
 }) => {
   const [filterSeverity, setFilterSeverity] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -124,6 +128,26 @@ export const AuditView: React.FC<AuditViewProps> = ({
           >
             📁 Выбрать файл
           </button>
+
+          {onOpenBatchScanner && (
+            <button
+              onClick={onOpenBatchScanner}
+              style={{
+                padding: '6px 14px',
+                backgroundColor: '#131814',
+                border: '1px solid #38bdf8',
+                color: '#38bdf8',
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontFamily: 'JetBrains Mono, monospace',
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}
+              title="Пакетное сканирование всех плагинов в папке plugins (Idea 13)"
+            >
+              📂 Пакетный аудит папки
+            </button>
+          )}
 
           {selectedJar && (
             <>
@@ -455,22 +479,43 @@ export const AuditView: React.FC<AuditViewProps> = ({
                       </span>
                     </div>
 
-                    <button
-                      onClick={() => onOpenCallGraph(f)}
-                      style={{
-                        backgroundColor: '#0c100d',
-                        border: '1px solid #334139',
-                        color: '#9bf246',
-                        fontSize: '10px',
-                        fontFamily: 'JetBrains Mono, monospace',
-                        padding: '3px 8px',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontWeight: 600,
-                      }}
-                    >
-                      [ 🌐 CALL GRAPH ]
-                    </button>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      {onOpenDisasm && (
+                        <button
+                          onClick={() => onOpenDisasm(f)}
+                          style={{
+                            backgroundColor: '#0c100d',
+                            border: '1px solid #38bdf8',
+                            color: '#38bdf8',
+                            fontSize: '10px',
+                            fontFamily: 'JetBrains Mono, monospace',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                          }}
+                          title="Open Disassembly in Bytecode Inspector"
+                        >
+                          [ 📜 DISASM ]
+                        </button>
+                      )}
+                      <button
+                        onClick={() => onOpenCallGraph(f)}
+                        style={{
+                          backgroundColor: '#0c100d',
+                          border: '1px solid #334139',
+                          color: '#9bf246',
+                          fontSize: '10px',
+                          fontFamily: 'JetBrains Mono, monospace',
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                        }}
+                      >
+                        [ 🌐 CALL GRAPH ]
+                      </button>
+                    </div>
                   </div>
 
                   <div style={{ fontSize: '11px', color: '#9aa69e', fontFamily: 'JetBrains Mono, monospace' }}>

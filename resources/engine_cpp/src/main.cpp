@@ -5,6 +5,11 @@
 #include "../include/security_pipeline.hpp"
 #include "../include/encrypted_loader.hpp"
 #include "../include/native_bridge.hpp"
+#include "../include/jvm_transpiler.hpp"
+#include "../include/native_loader_bytes.hpp"
+#include "../include/nanoguard_bridge_template.hpp"
+#include "../include/nanoguard_bridge_so_template.hpp"
+#include <set>
 #include <ctime>
 #include <sstream>
 
@@ -74,6 +79,8 @@ int main(int argc, char* argv[]) {
     bool enable_vm = false;
     bool enable_antitamper = false;
     bool enable_encrypt_classes = false;
+    bool flatten_root = false;
+    bool enable_native_dll = false;
     std::string owner_name = "";
 
     for (int i = 1; i < argc; ++i) {
@@ -107,6 +114,10 @@ int main(int argc, char* argv[]) {
             enable_encrypt_classes = true;
         } else if (arg == "--owner" && i + 1 < argc) {
             owner_name = argv[++i];
+        } else if (arg == "--flatten-root") {
+            flatten_root = true;
+        } else if (arg == "--native-dll") {
+            enable_native_dll = true;
         }
     }
 
@@ -188,13 +199,23 @@ int main(int argc, char* argv[]) {
         auto end_t = std::chrono::high_resolution_clock::now();
         double elapsed_ms = std::chrono::duration<double, std::milli>(end_t - start_t).count();
 
-        // Calculate threat score
+        // Calculate threat score (deduplicated per category to avoid false-positive inflation on benign plugins)
         int danger_score = 0;
+        bool has_critical = false;
+        bool has_high = false;
+        int medium_count = 0;
         for (const auto& f : all_findings) {
-            if (f.severity == "CRITICAL") danger_score += 35;
-            else if (f.severity == "HIGH") danger_score += 20;
-            else if (f.severity == "MEDIUM") danger_score += 10;
-            else danger_score += 5;
+            if (f.severity == "CRITICAL") has_critical = true;
+            else if (f.severity == "HIGH") has_high = true;
+            else if (f.severity == "MEDIUM") medium_count++;
+        }
+        if (has_critical) danger_score += 65;
+        if (has_high) danger_score += 30;
+        if (!has_critical && !has_high) {
+            // Only benign/medium reflection calls present, cap threat score at 15 (CLEAN)
+            danger_score = std::min(15, medium_count * 2);
+        } else {
+            danger_score += std::min(15, medium_count * 2);
         }
         if (danger_score > 100) danger_score = 100;
 
@@ -289,11 +310,19 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // Generate Decoy Dummy Classes mesh if requested
+        std::mt19937 rng(1337 + static_cast<uint32_t>(opts.encryption_seed));
+
+        // Package Flattening: move all classes directly into the root folder of the JAR
+        if (flatten_root) {
+            std::cout << "[*] Package Flattening: deleting package folders, relocating all classes to root...\n";
+            BytecodeArmor::flatten_and_repackage_to_root(entries, detected_main_class, rng);
+            package_prefix = "";
+        }
+
+        // Generate Decoy Dummy Classes mesh in root
         std::string dummy_root_class = "";
         std::vector<JarEntry> generated_dummies;
-        std::mt19937 rng(1337 + static_cast<uint32_t>(opts.encryption_seed));
-        if (opts.dummy_class_count > 0 && !package_prefix.empty()) {
+        if (opts.dummy_class_count > 0) {
             std::vector<ClassFile> dummy_files;
             dummy_files.reserve(opts.dummy_class_count);
 
@@ -415,6 +444,86 @@ int main(int argc, char* argv[]) {
             std::cout << "[+] Encrypted ClassLoader: all classes XOR-encrypted, NanoGuardLoader injected.\n";
         }
 
+        // Native DLL AOT Compilation
+        if (enable_native_dll && !detected_main_class.empty()) {
+            std::cout << "[*] Native AOT Engine: compiling JNI bridge DLL...\n";
+            std::string jni_cpp = JvmNativeTranspiler::generate_jni_cpp(detected_main_class, "onEnable", "()V", {});
+            std::string temp_cpp = "nanoguard_bridge_temp.cpp";
+            std::ofstream cpp_out(temp_cpp);
+            cpp_out << jni_cpp;
+            cpp_out.close();
+
+        std::string bridge_dll = "nanoguard_bridge.dll";
+        std::vector<uint8_t> dll_vec;
+        bool compiled = JvmNativeTranspiler::compile_dll(temp_cpp, bridge_dll);
+        if (compiled) {
+            std::cout << "[+] Native Bridge: successfully compiled " << bridge_dll << " via local MSVC cl.exe!\n";
+            std::ifstream jar_dll(bridge_dll, std::ios::binary);
+            dll_vec.assign((std::istreambuf_iterator<char>(jar_dll)), std::istreambuf_iterator<char>());
+        } else {
+            std::cout << "[*] No local cl.exe found. Utilizing ultra-compressed Native Bridge Template (Deflate 9)...\n";
+            dll_vec = get_embedded_bridge_dll(detected_main_class);
+            if (!dll_vec.empty()) {
+                std::cout << "[+] Successfully customized embedded Native DLL (" << dll_vec.size() << " bytes) for " << detected_main_class << "!\n";
+            } else {
+                std::cerr << "[!] Error: failed to unpack embedded bridge DLL template.\n";
+            }
+        }
+
+        if (!dll_vec.empty()) {
+            // Copy alongside output jar
+            size_t slash = output_path.find_last_of("/\\");
+            std::string out_dir = (slash != std::string::npos) ? output_path.substr(0, slash + 1) : "";
+            std::string target_dll = out_dir + "nanoguard_bridge.dll";
+            std::ofstream dst_dll(target_dll, std::ios::binary);
+            dst_dll.write(reinterpret_cast<const char*>(dll_vec.data()), dll_vec.size());
+            dst_dll.close();
+            std::cout << "[+] Deployed DLL alongside JAR: " << target_dll << "\n";
+
+            // Embed directly inside JAR archive!
+            JarEntry dll_e;
+            dll_e.filename = "nanoguard_bridge.dll";
+            dll_e.data = dll_vec;
+            dll_e.uncompressed_size = static_cast<uint32_t>(dll_vec.size());
+            dll_e.compressed_size = static_cast<uint32_t>(dll_vec.size());
+            dll_e.is_class = false;
+            entries.push_back(dll_e);
+
+            // Multi-Platform Linux x86_64 ELF (.so) Bridge
+            std::vector<uint8_t> so_vec = get_embedded_bridge_so(detected_main_class);
+            if (!so_vec.empty()) {
+                // Copy alongside output jar
+                std::string target_so = out_dir + "nanoguard_bridge.so";
+                std::ofstream dst_so(target_so, std::ios::binary);
+                dst_so.write(reinterpret_cast<const char*>(so_vec.data()), so_vec.size());
+                dst_so.close();
+                std::cout << "[+] Deployed Linux SO alongside JAR: " << target_so << "\n";
+
+                // Embed directly inside JAR archive for Pterodactyl/Linux hosting!
+                JarEntry so_e;
+                so_e.filename = "nanoguard_bridge.so";
+                so_e.data = so_vec;
+                so_e.uncompressed_size = static_cast<uint32_t>(so_vec.size());
+                so_e.compressed_size = static_cast<uint32_t>(so_vec.size());
+                so_e.is_class = false;
+                entries.push_back(so_e);
+                std::cout << "[+] Embedded nanoguard_bridge.so directly inside JAR (" << so_vec.size() << " bytes)!\n";
+            }
+            std::cout << "[+] Embedded nanoguard_bridge.dll directly inside JAR archive (" << dll_vec.size() << " bytes)!\n";
+
+            // Inject NativeBridgeLoader class for automated runtime self-extraction and loading
+            JarEntry nbl_e;
+            nbl_e.filename = "nanoguard/NativeBridgeLoader.class";
+            nbl_e.data.assign(NATIVE_BRIDGE_LOADER_BYTES, NATIVE_BRIDGE_LOADER_BYTES + NATIVE_BRIDGE_LOADER_SIZE);
+            nbl_e.uncompressed_size = static_cast<uint32_t>(NATIVE_BRIDGE_LOADER_SIZE);
+            nbl_e.compressed_size = static_cast<uint32_t>(NATIVE_BRIDGE_LOADER_SIZE);
+            nbl_e.is_class = true;
+            entries.push_back(nbl_e);
+            std::cout << "[+] Injected automated NativeBridgeLoader (Self-Extracting DLL/SO loader).\n";
+        }
+        }
+
+
         std::cout << "[+] Protected " << processed_classes << " classes successfully.\n";
         std::cout << "    - Stripped Debug Attributes:    " << total_stats.stripped_attributes << "\n";
         std::cout << "    - Encrypted String Literals:    " << total_stats.encrypted_strings << "\n";
@@ -428,6 +537,37 @@ int main(int argc, char* argv[]) {
             std::cout << "    - Anti-Tamper (SHA-256):        " << (sec_stats.antitamper_injected ? "INJECTED" : "no onEnable found") << "\n";
             std::cout << "    - Anti-Dump / ClassLoader Guard:" << (sec_stats.antidump_injected ? "ACTIVE" : "INACTIVE") << "\n";
         }
+
+        // META-INF Sanitizer & Leak Scrubbing
+        std::cout << "[*] Scrubbing META-INF leak files and build metadata...\n";
+        entries.erase(std::remove_if(entries.begin(), entries.end(), [](const JarEntry& e) {
+            std::string fn = e.filename;
+            std::transform(fn.begin(), fn.end(), fn.begin(), ::tolower);
+            if (fn.find("maven/") != std::string::npos ||
+                fn.find("pom.xml") != std::string::npos ||
+                fn.find("pom.properties") != std::string::npos ||
+                fn.find("git.properties") != std::string::npos ||
+                fn.find(".git") != std::string::npos ||
+                fn.find("build-info") != std::string::npos ||
+                fn.find(".dsa") != std::string::npos ||
+                fn.find(".rsa") != std::string::npos ||
+                fn.find(".sf") != std::string::npos) {
+                return true;
+            }
+            return false;
+        }), entries.end());
+
+        // Replace or sanitize MANIFEST.MF with sterile production headers
+        for (auto& e : entries) {
+            if (e.filename == "META-INF/MANIFEST.MF") {
+                std::string clean_manifest = "Manifest-Version: 1.0\r\nCreated-By: NanoGuard Extreme Armor (Native Engine)\r\n\r\n";
+                e.data.assign(clean_manifest.begin(), clean_manifest.end());
+                e.uncompressed_size = static_cast<uint32_t>(clean_manifest.size());
+                e.compressed_size = static_cast<uint32_t>(clean_manifest.size());
+                break;
+            }
+        }
+        std::cout << "[+] META-INF cleaned: Maven/Git/Signature traces stripped.\n";
 
         if (output_path.empty()) {
             output_path = input_jar.substr(0, input_jar.find_last_of('.')) + "_protected.jar";

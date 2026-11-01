@@ -12,7 +12,10 @@
     "test:e2e": "node scripts/verify_gui.js",
     "dist:win": "npm run build && electron-builder --win portable",
     "dist:linux": "npm run build && electron-builder --linux AppImage",
-    "dist:mac": "npm run build && electron-builder --mac dmg zip"
+    "dist:mac": "npm run build && electron-builder --mac dmg zip",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "author": "NanoDev <t.me/WineSquad>",
   "license": "MIT",
@@ -31,12 +34,24 @@
       {
         "from": "resources/engine",
         "to": "engine",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {
-      "target": "portable",
-      "icon": "build/icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "${productName}-${version}-Windows-Setup.${ext}"
+    },
+    "portable": {
       "artifactName": "${productName}-${version}-Windows-Portable.${ext}"
     },
     "linux": {
@@ -70,5 +85,8 @@
     "typescript": "^5.3.3",
     "vite": "^5.0.12",
     "vite-plugin-electron": "^0.28.0"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.4"
   }
 }

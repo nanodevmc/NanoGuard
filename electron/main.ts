@@ -4,6 +4,7 @@ import * as os from 'os';
 import { spawn } from 'child_process';
 import * as fs from 'fs';
 import { OtaManager } from './ota';
+import { ToolPackManager } from './tool_pack';
 
 if (process.platform === 'win32') {
   app.setAppUserModelId('com.nanodev.nanoguard');
@@ -30,6 +31,12 @@ function getAppIcon(): string | undefined {
 function getEngineBinary(name: string): string | null {
   const overridden = OtaManager.getOverriddenBinary(name);
   if (overridden) return overridden;
+
+  // Ultra-compressed tool pack extractor (instant on-demand decompression)
+  const fromPack = ToolPackManager.getToolPath(name);
+  if (fromPack && fs.existsSync(fromPack)) {
+    return fromPack;
+  }
 
   const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
   const exeName = process.platform === 'win32' ? `${name}.exe` : name;
@@ -129,6 +136,30 @@ ipcMain.handle('select-output-dir', async () => {
   });
   if (res.canceled || res.filePaths.length === 0) return null;
   return res.filePaths[0];
+});
+
+// IPC: Select Directory (for Batch Scan)
+ipcMain.handle('select-directory', async () => {
+  if (!mainWindow) return null;
+  const res = await dialog.showOpenDialog(mainWindow, {
+    title: 'Выберите папку plugins для аудита',
+    properties: ['openDirectory'],
+  });
+  if (res.canceled || res.filePaths.length === 0) return null;
+  return res.filePaths[0];
+});
+
+// IPC: List JARs in Directory
+ipcMain.handle('list-jars-in-directory', async (_event, dirPath: string) => {
+  if (!dirPath || !fs.existsSync(dirPath)) return [];
+  try {
+    const files = fs.readdirSync(dirPath);
+    return files
+      .filter((f) => f.toLowerCase().endsWith('.jar'))
+      .map((f) => path.join(dirPath, f));
+  } catch {
+    return [];
+  }
 });
 
 // IPC: Open Path in Explorer / Finder
@@ -301,6 +332,8 @@ ipcMain.handle('protect-jar', async (_event, options: {
   enableVm?: boolean;
   antiTamper?: boolean;
   encryptClasses?: boolean;
+  flattenRoot?: boolean;
+  nativeDll?: boolean;
   ownerName?: string;
   outputPath?: string;
 }) => {
@@ -318,6 +351,8 @@ ipcMain.handle('protect-jar', async (_event, options: {
       if (options.enableVm) args.push('--vm');
       if (options.antiTamper) args.push('--antitamper');
       if (options.encryptClasses) args.push('--encrypt-classes');
+      if (options.flattenRoot) args.push('--flatten-root');
+      if (options.nativeDll) args.push('--native-dll');
       if (options.ownerName) args.push('--owner', options.ownerName);
 
       const child = spawn(nanoguardBin, args);

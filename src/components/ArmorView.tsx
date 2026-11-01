@@ -27,6 +27,44 @@ export const ArmorView: React.FC<ArmorViewProps> = ({ onSelectFile, selectedJar,
   const [enableVmFallback, setEnableVmFallback] = useState(true);
   const [injectBootstrap, setInjectBootstrap] = useState(true);
   const [dummyMesh, setDummyMesh] = useState(true);
+  const [flattenRoot, setFlattenRoot] = useState(true);
+  const [nativeDll, setNativeDll] = useState(true);
+  const [activePreset, setActivePreset] = useState<'heavy' | 'light' | 'native'>('heavy');
+
+  const applyPreset = (preset: 'heavy' | 'light' | 'native') => {
+    setActivePreset(preset);
+    if (preset === 'heavy') {
+      setStripLvt(true);
+      setEncryptStrings(true);
+      setAntiDecompile(true);
+      setAntiTamper(true);
+      setEnableVmFallback(true);
+      setInjectBootstrap(true);
+      setDummyMesh(true);
+      setFlattenRoot(true);
+      setNativeDll(true);
+    } else if (preset === 'light') {
+      setStripLvt(true);
+      setEncryptStrings(true);
+      setAntiDecompile(false);
+      setAntiTamper(false);
+      setEnableVmFallback(false);
+      setInjectBootstrap(false);
+      setDummyMesh(false);
+      setFlattenRoot(false);
+      setNativeDll(false);
+    } else if (preset === 'native') {
+      setStripLvt(true);
+      setEncryptStrings(true);
+      setAntiDecompile(true);
+      setAntiTamper(true);
+      setEnableVmFallback(true);
+      setInjectBootstrap(true);
+      setDummyMesh(false);
+      setFlattenRoot(false);
+      setNativeDll(true);
+    }
+  };
   const [ownerName, setOwnerName] = useState('NanoDev');
   const [protecting, setProtecting] = useState(false);
   const [result, setResult] = useState<ProtectResult | null>(null);
@@ -65,6 +103,8 @@ export const ArmorView: React.FC<ArmorViewProps> = ({ onSelectFile, selectedJar,
           antiTamper,
           injectBootstrap,
           dummyMesh,
+          flattenRoot,
+          nativeDll,
           ownerName: ownerName.trim() || undefined,
           outputPath: finalOut,
         });
@@ -148,6 +188,82 @@ export const ArmorView: React.FC<ArmorViewProps> = ({ onSelectFile, selectedJar,
           ) : (
             'Нажмите или перетащите файл плагина для наложения многоуровневой защиты'
           )}
+        </div>
+      </div>
+
+      {/* Armor Preset Selector (Idea 20) */}
+      <div
+        style={{
+          backgroundColor: '#0c100d',
+          border: '1px solid #1f2721',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '12px', fontWeight: 700, color: '#eaf0ea', fontFamily: 'JetBrains Mono, monospace' }}>
+            ⚡ QUICK PRESET:
+          </span>
+          <span style={{ fontSize: '11px', color: '#9aa69e', fontFamily: 'JetBrains Mono, monospace' }}>
+            (Выбор уровня защиты в 1 клик)
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={() => applyPreset('light')}
+            style={{
+              backgroundColor: activePreset === 'light' ? '#1f2721' : '#131814',
+              border: activePreset === 'light' ? '1px solid #9bf246' : '1px solid #334139',
+              color: activePreset === 'light' ? '#9bf246' : '#9aa69e',
+              fontSize: '11px',
+              fontFamily: 'JetBrains Mono, monospace',
+              padding: '5px 12px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+            title="Лёгкий режим: только шифрование строк и очистка метаданных (без просадок FPS)"
+          >
+            🟢 Light (Server-Friendly)
+          </button>
+          <button
+            onClick={() => applyPreset('native')}
+            style={{
+              backgroundColor: activePreset === 'native' ? '#1f2721' : '#131814',
+              border: activePreset === 'native' ? '1px solid #38bdf8' : '1px solid #334139',
+              color: activePreset === 'native' ? '#38bdf8' : '#9aa69e',
+              fontSize: '11px',
+              fontFamily: 'JetBrains Mono, monospace',
+              padding: '5px 12px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+            title="Вынос логики в C++ машинный код DLL + JVM VM fallback"
+          >
+            🔷 Native Only (C++ DLL)
+          </button>
+          <button
+            onClick={() => applyPreset('heavy')}
+            style={{
+              backgroundColor: activePreset === 'heavy' ? '#1f2721' : '#131814',
+              border: activePreset === 'heavy' ? '1px solid #ef4444' : '1px solid #334139',
+              color: activePreset === 'heavy' ? '#f87171' : '#9aa69e',
+              fontSize: '11px',
+              fontFamily: 'JetBrains Mono, monospace',
+              padding: '5px 12px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 700,
+            }}
+            title="Максимальная броня: Flow-Flattening, Opaque Predicates, Native DLL, Anti-Tamper, Dummy Mesh"
+          >
+            🔥 Anti-Leak (Heavy Max)
+          </button>
         </div>
       </div>
 
@@ -359,6 +475,63 @@ export const ArmorView: React.FC<ArmorViewProps> = ({ onSelectFile, selectedJar,
               </div>
               <div style={{ fontSize: '10px', color: '#9aa69e', marginTop: '2px', lineHeight: '1.4' }}>
                 Шифрование строк уникальным ключом билда + удаление LVT, LineNumbers и SourceFile (-40% веса).
+              </div>
+            </div>
+          </label>
+          {/* Option 7: Package Flattening */}
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '10px',
+              padding: '10px 12px',
+              backgroundColor: '#131814',
+              borderRadius: '6px',
+              border: flattenRoot ? '1px solid #334139' : '1px solid #1f2721',
+              cursor: 'pointer',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={flattenRoot}
+              onChange={(e) => setFlattenRoot(e.target.checked)}
+              style={{ accentColor: '#9bf246', marginTop: '3px' }}
+            />
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#eaf0ea' }}>
+                7. Package Flattening (Все классы в корень)
+              </div>
+              <div style={{ fontSize: '10px', color: '#9aa69e', marginTop: '2px', lineHeight: '1.4' }}>
+                Полное удаление структуры каталогов. Все .class рандомизируются и переносятся прямо в корень JAR.
+              </div>
+            </div>
+          </label>
+
+          {/* Option 8: Native DLL AOT Transpiler */}
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '10px',
+              padding: '10px 12px',
+              backgroundColor: '#131814',
+              borderRadius: '6px',
+              border: nativeDll ? '1px solid #334139' : '1px solid #1f2721',
+              cursor: 'pointer',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={nativeDll}
+              onChange={(e) => setNativeDll(e.target.checked)}
+              style={{ accentColor: '#9bf246', marginTop: '3px' }}
+            />
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#eaf0ea' }}>
+                8. Native AOT Engine (x86_64 Machine Code .DLL)
+              </div>
+              <div style={{ fontSize: '10px', color: '#9aa69e', marginTop: '2px', lineHeight: '1.4' }}>
+                Компиляция critical логики в нативную библиотеку nanoguard_bridge.dll через MSVC cl.exe.
               </div>
             </div>
           </label>

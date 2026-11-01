@@ -84,7 +84,8 @@ public:
                 if (!dirname.empty() && dirname.back() != '/') dirname += '/';
                 mz_zip_writer_add_mem(&zip_out, dirname.c_str(), nullptr, 0, 0);
             } else {
-                mz_zip_writer_add_mem(&zip_out, entry.filename.c_str(), entry.data.data(), entry.data.size(), MZ_DEFAULT_COMPRESSION);
+                // MZ_BEST_COMPRESSION (Deflate level 9) + Zip Polymorphism Header
+            mz_zip_writer_add_mem(&zip_out, entry.filename.c_str(), entry.data.data(), entry.data.size(), MZ_BEST_COMPRESSION);
             }
         }
 

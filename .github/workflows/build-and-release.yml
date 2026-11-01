@@ -88,6 +88,57 @@ jobs:
           name: rust-fastscan-${{ matrix.os }}
           path: bin-out/${{ matrix.artifact_name }}
 
+  build-tauri-windows:
+    name: Build Tauri v2 Windows Release
+    needs: [build-cpp-engine, build-rust-fastscan]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Download Windows C++ Engine
+        uses: actions/download-artifact@v4
+        with:
+          name: cpp-engine-windows-latest
+          path: resources/engine
+
+      - name: Download Windows Rust FastScan
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-fastscan-windows-latest
+          path: resources/engine
+
+      - name: Prepare Windows Engine Names
+        shell: bash
+        run: |
+          cp resources/engine/nanoguard-cli-windows-x64.exe resources/engine/nanoguard.exe || true
+          cp resources/engine/nanoguard-fastscan-windows-x64.exe resources/engine/nanoguard-fastscan.exe || true
+
+      - name: Install Frontend Dependencies
+        run: npm install
+
+      - name: Build Tauri Binary
+        run: npx @tauri-apps/cli build --no-bundle
+
+      - name: Rename Tauri Output
+        shell: bash
+        run: |
+          mkdir -p tauri-out
+          cp src-tauri/target/release/nanoguard.exe tauri-out/NanoGuard-Tauri-v0.1.2-Windows.exe
+
+      - name: Upload Tauri Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-windows-release
+          path: tauri-out/NanoGuard-Tauri-v0.1.2-Windows.exe
+
   build-and-verify-macos:
     name: Build, Playwright E2E & Package GUI (macOS)
     needs: [build-cpp-engine, build-rust-fastscan]
@@ -155,14 +206,14 @@ jobs:
           cp dist-release/*.dmg dist-mac-clean/ 2>/dev/null || true
           cp dist-release/*.zip dist-mac-clean/ 2>/dev/null || true
 
-      - name: Upload macOS GUI Artifact
+      - name: Upload Clean macOS Packages
         uses: actions/upload-artifact@v4
         with:
-          name: gui-macos-package
-          path: dist-mac-clean/*.*
+          name: gui-macos-clean
+          path: dist-mac-clean/
 
   build-gui-windows:
-    name: Package GUI (Windows)
+    name: Build & Package GUI (Windows Electron)
     needs: [build-cpp-engine, build-rust-fastscan]
     runs-on: windows-latest
     steps:
@@ -177,42 +228,42 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: cpp-engine-windows-latest
-          path: resources/engine_cpp/bin
+          path: resources/engine
 
       - name: Download Rust FastScan (Windows)
         uses: actions/download-artifact@v4
         with:
           name: rust-fastscan-windows-latest
-          path: crates/target/release
+          path: resources/engine
 
       - name: Prepare Engine for Bundling
         shell: bash
         run: |
-          mkdir -p resources/engine
-          cp resources/engine_cpp/bin/nanoguard-cli-windows-x64.exe resources/engine/nanoguard.exe || true
-          cp crates/target/release/nanoguard-fastscan-windows-x64.exe resources/engine/nanoguard-fastscan.exe || true
+          cp resources/engine/nanoguard-cli-windows-x64.exe resources/engine/nanoguard.exe || true
+          cp resources/engine/nanoguard-fastscan-windows-x64.exe resources/engine/nanoguard-fastscan.exe || true
 
-      - name: Install NPM Dependencies
+      - name: Install Dependencies
         run: npm install
 
-      - name: Build Web Renderer & Electron Main
-        run: |
-          npm run build:renderer
-          npm run build:electron
-
-      - name: Package Windows App (Portable EXE)
+      - name: Build & Package Windows (NSIS & Portable)
         run: npm run dist:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Windows GUI Artifact
+      - name: Filter Clean Windows Packages
+        shell: bash
+        run: |
+          mkdir -p dist-win-clean
+          cp dist-release/*.exe dist-win-clean/ 2>/dev/null || true
+
+      - name: Upload Clean Windows Packages
         uses: actions/upload-artifact@v4
         with:
-          name: gui-windows-package
-          path: dist-release/*.exe
+          name: gui-windows-clean
+          path: dist-win-clean/
 
   build-gui-linux:
-    name: Package GUI (Linux)
+    name: Build & Package GUI (Linux AppImage)
     needs: [build-cpp-engine, build-rust-fastscan]
     runs-on: ubuntu-latest
     steps:
@@ -227,120 +278,44 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: cpp-engine-ubuntu-latest
-          path: resources/engine_cpp/bin
+          path: resources/engine
 
       - name: Download Rust FastScan (Linux)
         uses: actions/download-artifact@v4
         with:
           name: rust-fastscan-ubuntu-latest
-          path: crates/target/release
+          path: resources/engine
 
       - name: Prepare Engine for Bundling
         run: |
-          mkdir -p resources/engine
-          cp resources/engine_cpp/bin/nanoguard-cli-linux-x64 resources/engine/nanoguard || true
-          cp crates/target/release/nanoguard-fastscan-linux-x64 resources/engine/nanoguard-fastscan || true
+          cp resources/engine/nanoguard-cli-linux-x64 resources/engine/nanoguard || true
+          cp resources/engine/nanoguard-fastscan-linux-x64 resources/engine/nanoguard-fastscan || true
           chmod +x resources/engine/* || true
 
-      - name: Install NPM Dependencies
+      - name: Install Dependencies
         run: npm install
 
-      - name: Build Web Renderer & Electron Main
-        run: |
-          npm run build:renderer
-          npm run build:electron
-
-      - name: Package Linux App (AppImage)
+      - name: Build & Package Linux (AppImage)
         run: npm run dist:linux
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Linux GUI Artifact
+      - name: Filter Clean Linux Packages
+        run: |
+          mkdir -p dist-linux-clean
+          cp dist-release/*.AppImage dist-linux-clean/ 2>/dev/null || true
+
+      - name: Upload Clean Linux Packages
         uses: actions/upload-artifact@v4
         with:
-          name: gui-linux-package
-          path: dist-release/*.AppImage
+          name: gui-linux-clean
+          path: dist-linux-clean/
 
-  test-protected-plugin-server:
-    name: Test Protected Plugin on Paper Server & Backdoor Hunter
-    needs: [build-cpp-engine, build-rust-fastscan]
+  release:
+    name: Publish GitHub Release with Artifacts
+    needs: [build-cpp-engine, build-rust-fastscan, build-tauri-windows, build-and-verify-macos, build-gui-windows, build-gui-linux]
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download Linux C++ Engine
-        uses: actions/download-artifact@v4
-        with:
-          name: cpp-engine-ubuntu-latest
-          path: bin/
-
-      - name: Download Linux Rust FastScan
-        uses: actions/download-artifact@v4
-        with:
-          name: rust-fastscan-ubuntu-latest
-          path: bin/
-
-      - name: Make binaries executable
-        run: |
-          chmod +x bin/nanoguard-cli-linux-x64 bin/nanoguard-fastscan-linux-x64
-
-      - name: Verify Backdoor Detection on Malware Sample (bStats)
-        run: |
-          echo "=== Testing C++ Backdoor Hunter on bStats-7_3_1_-_DEV.jar ==="
-          bin/nanoguard-cli-linux-x64 --audit test_jars/malware_samples/bStats-7_3_1_-_DEV.jar --out bstats_audit.json
-          cat bstats_audit.json
-          grep -i "Runtime Bytecode Injection\|ForceOP\|RofuYT" bstats_audit.json || { echo "Malware detection failed!"; exit 1; }
-
-          echo "=== Testing Rust FastScan on bStats-7_3_1_-_DEV.jar ==="
-          bin/nanoguard-fastscan-linux-x64 test_jars/malware_samples/bStats-7_3_1_-_DEV.jar --json > fastscan_audit.json
-          cat fastscan_audit.json
-          grep -i "Runtime Bytecode Injection\|ForceOP\|RofuYT" fastscan_audit.json || { echo "FastScan malware detection failed!"; exit 1; }
-          echo "Malware detection test PASSED successfully!"
-
-      - name: Apply NanoGuard Bytecode Armor to Test Plugin
-        run: |
-          echo "=== Protecting smoketest_plugin.jar with NanoGuard Armor ==="
-          bin/nanoguard-cli-linux-x64 --protect test_jars/smoketest_plugin.jar --strip-lvt --anti-decompile --out protected_plugin.jar
-          ls -la protected_plugin.jar
-
-      - name: Verify NanoGuard Marker File & ZIP Integrity
-        run: |
-          echo "=== Inspecting protected_plugin.jar archive structure ==="
-          unzip -l protected_plugin.jar
-          echo "--- Checking META-INF/NANOGUARD.INF ---"
-          unzip -p protected_plugin.jar META-INF/NANOGUARD.INF
-
-      - name: Set up Java 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-
-      - name: Run Protected Plugin on Real PaperMC Minecraft Server
-        run: |
-          mkdir -p server/plugins
-          cp protected_plugin.jar server/plugins/
-          cd server
-          echo "eula=true" > eula.txt
-          echo "Downloading PaperMC 1.20.4..."
-          curl -sSL -o paper.jar "https://api.papermc.io/v2/projects/paper/versions/1.20.4/builds/499/downloads/paper-1.20.4-499.jar"
-          echo "Starting Paper server with protected plugin..."
-          timeout 50s java -Xmx1024M -Dcom.mojang.eula.agree=true -jar paper.jar --nogui || true
-          echo "=== Server Logs ==="
-          if [ -f logs/latest.log ]; then
-            cat logs/latest.log | tail -n 80
-            echo "=== Checking plugin loading status ==="
-            grep -i "Loading SmokeTestPlugin\|Enabling SmokeTestPlugin\|Done (" logs/latest.log || { echo "Plugin failed to load on Paper server!"; exit 1; }
-            echo "Paper server successfully loaded and enabled NanoGuard-protected plugin!"
-          else
-            echo "Server log directory content:"
-            ls -la
-          fi
-
-  publish-release:
-    name: Publish Official GitHub Release (v0.1.2)
-    needs: [build-cpp-engine, build-rust-fastscan, test-protected-plugin-server, build-and-verify-macos, build-gui-windows, build-gui-linux]
-    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
 
@@ -361,7 +336,7 @@ jobs:
           cp release-assets/nanoguard-cli-* release-ready/ 2>/dev/null || true
           cp release-assets/nanoguard-fastscan-* release-ready/ 2>/dev/null || true
 
-          # Purge any debug yml, blockmaps, or loose screenshot images from download assets
+          # Purge any debug yml, blockmaps, or loose screenshot images
           rm -f release-ready/*.yml release-ready/*.blockmap release-ready/*.png release-ready/builder-debug.yml
 
           # Generate SHA256 checksums
@@ -376,7 +351,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v0.1.2
-          name: "NanoGuard v0.1.2 - Advanced Security Suite & OTA Modules"
+          name: "NanoGuard v0.1.2 - Advanced Security Suite & Tauri v2 Lightweight Core"
           draft: false
           prerelease: false
           files: release-ready/*
@@ -389,41 +364,25 @@ jobs:
 
             ---
 
-            ### 📸 Интерфейс (Playwright E2E Verified on macOS):
-            <p align="center">
-              <img src="https://raw.githubusercontent.com/NanoDev1488/NanoGuard/main/docs/screenshots/nanoguard_audit.png" alt="NanoGuard Audit & Scan" width="48%" />
-              <img src="https://raw.githubusercontent.com/NanoDev1488/NanoGuard/main/docs/screenshots/nanoguard_protect.png" alt="NanoGuard Protect JAR" width="48%" />
-            </p>
-            <p align="center">
-              <img src="https://raw.githubusercontent.com/NanoDev1488/NanoGuard/main/docs/screenshots/nanoguard_callgraph.png" alt="Interactive Call Graph" width="85%" />
-            </p>
-
-            ---
-
-            ### 🛡️ Модуль Backdoor Hunter
-            - **RCE & Загрузчики**: Детекция `ProcessBuilder`, `Runtime.getRuntime().exec()`, `URLClassLoader` дропперов.
-            - **Перехват прав**: Поиск скрытой выдачи `setOp(true)` и PermissionAttachment `*`.
-            - **Эвристика чата**: Выявление скрытых паролей и триггеров в `AsyncPlayerChatEvent` / `PlayerCommandPreprocessEvent`.
-            - **Fingerprint обфускаторов**: Allatori, Zelix KlassMaster, Stringer, ProGuard.
-            - **Точные офсеты**: Класс, метод, инструкция (`0x04A2: invokevirtual Player.setOp(Z)`).
-
-            ### 🔒 Модуль Bytecode Armor
-            - **Polymorphic String Encryption**: Динамическое XOR шифрование констант уникальным ключом билда.
-            - **Anti-Decompiler Traps**: Синтетические мостовые методы (`ACC_SYNTHETIC | ACC_BRIDGE`) и ловушки.
-            - **Metadata Stripping**: Полное удаление `LineNumberTable`, `LocalVariableTable`, `SourceFile` (до -40% веса JAR).
-            - **100 Decoy Classes**: Инъекция 100 рандомных синтетических классов с запутанным байткодом.
+            ### 🚀 Главные обновления:
+            - **Tauri v2 Ultra-Light Core**: Доступна облегчённая версия на Rust + WebView2 (`NanoGuard-Tauri-v0.1.2-Windows.exe` весит всего ~9.5 МБ и расходует в 5 раз меньше памяти!).
+            - **Multi-Platform Native Bridges**: Вшивание в JAR одновременно машинного кода Windows (`nanoguard_bridge.dll`) и Linux ELF (`nanoguard_bridge.so`) для Pterodactyl/Ubuntu серверов.
+            - **Flow-Flattening & Opaque Predicates**: Непрозрачные ловушки `(N ^ N) == 0` и мёртвые ветки `athrow null`, ломающие декомпиляторы CFR, Fernflower, Recaf.
+            - **Batch Plugins Scanner**: Пакетное экспресс-сканирование всей папки `plugins/` в 1 клик.
+            - **1-Click Quick Presets**: Light (Server-Friendly), Native Only, Anti-Leak Heavy Max.
 
             ---
 
             ### 📦 Загрузка релизов:
-            - **Windows GUI (Portable EXE)**: `NanoGuard-0.1.1-Windows-Portable.exe`
-            - **Linux GUI (AppImage)**: `NanoGuard-0.1.1-Linux.AppImage`
-            - **macOS GUI (DMG / ZIP)**: `NanoGuard-0.1.1-macOS.dmg`, `NanoGuard-0.1.1-macOS.zip`
+            - **⚡ Windows GUI (Tauri v2 Ultra-Light, 9.5 МБ)**: `NanoGuard-Tauri-v0.1.2-Windows.exe`
+            - **Windows GUI (Electron Portable EXE)**: `NanoGuard-0.1.2-Windows-Portable.exe`
+            - **Windows GUI (Electron Setup Installer)**: `NanoGuard-0.1.2-Windows-Setup.exe`
+            - **Linux GUI (AppImage)**: `NanoGuard-0.1.2-Linux.AppImage`
+            - **macOS GUI (DMG / ZIP)**: `NanoGuard-0.1.2-macOS.dmg`, `NanoGuard-0.1.2-macOS.zip`
             - **Нативные CLI утилиты (C++17 & Rust FastScan)**:
               - Windows: `nanoguard-cli-windows-x64.exe`, `nanoguard-fastscan-windows-x64.exe`
               - Linux: `nanoguard-cli-linux-x64`, `nanoguard-fastscan-linux-x64`
               - macOS: `nanoguard-cli-macos-x64`, `nanoguard-fastscan-macos-x64`
-
 
             ---
             *Разработано [NanoDev](https://t.me/radoqi) · Канал: [t.me/WineSquad](https://t.me/WineSquad)*

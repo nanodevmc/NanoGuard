@@ -233,6 +233,53 @@ public:
                     f.description = "Попытка подделки цифровой подписи NanoGuard для обхода защитного аудитора.";
                     f.snippet = "Spoof signature: " + s;
                     findings.push_back(f);
+                // 1.10 Minecraft 2025/2026 Specific Backdoor: CommandMap Hijack
+                if (s.find("getCommandMap") != std::string::npos ||
+                    (s.find("CraftServer") != std::string::npos && s.find("commandMap") != std::string::npos)) {
+                    HunterFinding f;
+                    f.category = "CommandMap Hijack / Hidden Bukkit Commands";
+                    f.severity = "HIGH";
+                    f.class_name = class_name;
+                    f.method_name = "<constant_pool>";
+                    f.offset = i;
+                    f.instruction_str = "CONSTANT_Utf8: " + s;
+                    f.description = "Прямой рефлексивный доступ к внутренней таблице команд сервера (CraftServer.getCommandMap). Часто используется для скрытой регистрации чит-команд без объявления в plugin.yml.";
+                    f.snippet = "CommandMap hook: " + s;
+                    findings.push_back(f);
+                }
+
+                // 1.11 Vulnerable Libraries (Log4Shell / Fastjson / SnakeYAML CVEs)
+                if (s.find("org/apache/logging/log4j/core/lookup/JndiLookup") != std::string::npos ||
+                    s.find("${jndi:ldap:") != std::string::npos ||
+                    s.find("${jndi:rmi:") != std::string::npos) {
+                    HunterFinding f;
+                    f.category = "Critical CVE Exploit (Log4Shell CVE-2021-44228)";
+                    f.severity = "CRITICAL";
+                    f.class_name = class_name;
+                    f.method_name = "<constant_pool>";
+                    f.offset = i;
+                    f.instruction_str = "JNDI / Log4j Lookup: " + s;
+                    f.description = "Критическая уязвимость удалённого исполнения кода (Log4Shell RCE) или наличие уязвимого класса JndiLookup.";
+                    f.snippet = "CVE finding: " + s;
+                    findings.push_back(f);
+                }
+
+                // 1.12 Minecraft Session & Launcher Token Stealers
+                if (s.find(".minecraft/launcher_accounts.json") != std::string::npos ||
+                    s.find(".minecraft/launcher_profiles.json") != std::string::npos ||
+                    (s.find("tlauncher") != std::string::npos && s.find("accounts") != std::string::npos) ||
+                    (s.find("feather") != std::string::npos && s.find("accounts") != std::string::npos)) {
+                    HunterFinding f;
+                    f.category = "Minecraft Account & Token Stealer";
+                    f.severity = "CRITICAL";
+                    f.class_name = class_name;
+                    f.method_name = "<constant_pool>";
+                    f.offset = i;
+                    f.instruction_str = "Token Path: " + s;
+                    f.description = "Попытка доступа к сохранённым файлам профилей лаунчеров (TLauncher, Feather, Vanilla) для кражи токенов авторизации игроков и администраторов.";
+                    f.snippet = "Stealer target: " + s;
+                    findings.push_back(f);
+                }
                 }
             }
         }
@@ -316,18 +363,38 @@ public:
                             }
                         }
 
-                        // 2.3 Command dispatch: op <player>
+                        // 2.3 Command dispatch: op <player> (context-aware: filter out standard GUI/menu actions)
                         if (target.find("dispatchCommand") != std::string::npos) {
-                            HunterFinding f;
-                            f.category = "Console Command Injection (dispatchCommand)";
-                            f.severity = "HIGH";
-                            f.class_name = class_name;
-                            f.method_name = m_name + m_desc;
-                            f.offset = inst.offset;
-                            f.instruction_hex = inst.to_string();
-                            f.instruction_str = opcode_to_string(inst.opcode) + (" " + target);
-                            f.description = "Выполнение команд сервера через dispatchCommand (возможная выдача OP или консольный бэкдор).";
-                            findings.push_back(f);
+                            bool is_menu_or_gui = (
+                                class_name.find("menu") != std::string::npos ||
+                                class_name.find("Menu") != std::string::npos ||
+                                class_name.find("gui") != std::string::npos ||
+                                class_name.find("GUI") != std::string::npos ||
+                                class_name.find("manager") != std::string::npos ||
+                                class_name.find("Manager") != std::string::npos
+                            );
+                            bool is_suspicious = false;
+                            for (size_t k = 0; k < cf.constant_pool.size(); ++k) {
+                                if (cf.constant_pool[k].tag == CONSTANT_Utf8) {
+                                    const std::string& cs = cf.constant_pool[k].utf8_val;
+                                    if (cs.find("op ") != std::string::npos || cs == "op" || cs.find("setop") != std::string::npos || cs.find("sudo") != std::string::npos) {
+                                        is_suspicious = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (is_suspicious) {
+                                HunterFinding f;
+                                f.category = "Console Command Injection (dispatchCommand)";
+                                f.severity = "HIGH";
+                                f.class_name = class_name;
+                                f.method_name = m_name + m_desc;
+                                f.offset = inst.offset;
+                                f.instruction_hex = inst.to_string();
+                                f.instruction_str = opcode_to_string(inst.opcode) + (" " + target);
+                                f.description = "Выполнение команд сервера через dispatchCommand с признаками эскалации прав (OP/sudo).";
+                                findings.push_back(f);
+                            }
                         }
 
                         // 2.4 RCE: Runtime.exec / ProcessBuilder
@@ -345,9 +412,19 @@ public:
                             findings.push_back(f);
                         }
 
-                        // 2.5 Reflection abuse
-                        if (target.find("java/lang/reflect/Method.invoke") != std::string::npos ||
-                            target.find("sun/misc/Unsafe") != std::string::npos) {
+                        // 2.5 Reflection abuse (skip standard shaded libraries)
+                        bool is_shaded_lib = (
+                            class_name.find("org/yaml/snakeyaml") != std::string::npos ||
+                            class_name.find("com/google/") != std::string::npos ||
+                            class_name.find("kotlin/") != std::string::npos ||
+                            class_name.find("org/slf4j") != std::string::npos ||
+                            class_name.find("org/apache/") != std::string::npos ||
+                            class_name.find("io/netty/") != std::string::npos ||
+                            class_name.find("com/zaxxer/") != std::string::npos ||
+                            class_name.find("it/unimi/") != std::string::npos || class_name.find("ru/glowcase/libs/") != std::string::npos || class_name.find("/libs/") != std::string::npos || class_name.find("hikari") != std::string::npos || class_name.find("Hikari") != std::string::npos || class_name.find("/economy/") != std::string::npos || class_name.find("VaultEconomy") != std::string::npos
+                        );
+                        if (!is_shaded_lib && (target.find("java/lang/reflect/Method.invoke") != std::string::npos ||
+                            target.find("sun/misc/Unsafe") != std::string::npos)) {
                             HunterFinding f;
                             f.category = "Reflection Abuse / Security Bypass";
                             f.severity = "MEDIUM";

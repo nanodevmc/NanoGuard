@@ -65,10 +65,14 @@ pub fn scan_jar<P: AsRef<Path>>(path: P) -> Result<JarScanReport, String> {
         .par_iter()
         .map(|(name, bytes)| {
             let entropy = shannon_entropy(bytes);
-            let mut threats = MalwareScanner::scan_class_bytes(name, bytes);
-            for rule in &rules {
-                if let Some(finding) = crate::yara::match_rule(rule, bytes, name) {
-                    threats.push(finding);
+            let lower_name = name.to_lowercase();
+            let is_shaded = lower_name.contains("/libs/") || lower_name.contains("hikari") || lower_name.contains("snakeyaml") || lower_name.contains("google/") || lower_name.contains("apache/");
+            let mut threats = if is_shaded { Vec::new() } else { MalwareScanner::scan_class_bytes(name, bytes) };
+            if !is_shaded {
+                for rule in &rules {
+                    if let Some(finding) = crate::yara::match_rule(rule, bytes, name) {
+                        threats.push(finding);
+                    }
                 }
             }
             (threats, entropy)
